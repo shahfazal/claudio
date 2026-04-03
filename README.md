@@ -4,6 +4,9 @@ Browse your [Claude Code](https://claude.ai/code) sessions in a local web app.
 
 Reads `~/.claude/` — the same directory Claude Code writes to. No cloud, no sync, no accounts.
 
+<img width="718" height="388" alt="image" src="https://github.com/user-attachments/assets/78ae2709-8b61-423a-be58-8dfc8acd006b" />
+
+
 ## What you get
 
 - All sessions grouped by project, sorted newest-first
