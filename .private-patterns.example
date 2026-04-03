@@ -1,0 +1,11 @@
+# Rename this file to .private-patterns (it is gitignored).
+# One extended-regex pattern per line. The hook runs:
+#   git grep -nEf .private-patterns -- *.py *.md *.toml ...
+#
+# Add your own username, local paths, and any other personal identifiers.
+# Lines starting with # are NOT treated as comments by grep — remove them
+# from your actual .private-patterns file.
+
+\byourname\b
+yourusername
+/Users/yourusername

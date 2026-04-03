@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Pre-push hook: block pushes that contain private data.
+# Install once with: git config core.hooksPath .github/hooks
+#
+# Configure your own private patterns in .private-patterns (gitignored).
+# Copy .private-patterns.example to get started.
+
+set -euo pipefail
+
+PATTERNS_FILE=".private-patterns"
+
+if [[ ! -f "$PATTERNS_FILE" ]]; then
+    echo "No $PATTERNS_FILE found — skipping private data check."
+    echo "Copy .private-patterns.example → .private-patterns and fill it in."
+    exit 0
+fi
+
+FOUND=$(git grep -nEf "$PATTERNS_FILE" -- \
+    '*.py' '*.md' '*.toml' '*.json' '*.jsonl' '*.txt' \
+    2>/dev/null || true)
+
+if [[ -n "$FOUND" ]]; then
+    echo ""
+    echo "Private data detected — sanitize before pushing:"
+    echo ""
+    echo "$FOUND"
+    echo ""
+    exit 1
+fi
+
+echo "No private data found"
