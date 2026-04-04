@@ -397,11 +397,80 @@ def group_by_project(sessions: list) -> list:
                 "label": project_display(slug, s.get("cwd")),
                 "cwd": s.get("cwd") or ("/" + slug.lstrip("-").replace("-", "/")),
                 "sessions": [],
+                "memory_count": 0,
             }
         groups[slug]["sessions"].append(s)
+
+    for slug, group in groups.items():
+        memory_dir = PROJECTS_DIR / slug / "memory"
+        if memory_dir.exists():
+            group["memory_count"] = sum(
+                1 for f in memory_dir.iterdir()
+                if f.suffix == ".md" and f.name != "MEMORY.md"
+            )
 
     return sorted(
         groups.values(),
         key=lambda g: g["sessions"][0].get("started_at") or "",
         reverse=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# Memory
+# ---------------------------------------------------------------------------
+
+
+def _parse_frontmatter(text: str) -> tuple[dict, str]:
+    """Extract frontmatter from a markdown file. Returns (meta_dict, body)."""
+    if not text.startswith("---\n"):
+        return {}, text
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        return {}, text
+    meta: dict = {}
+    for line in text[4:end].splitlines():
+        if ":" in line:
+            key, _, val = line.partition(":")
+            meta[key.strip()] = val.strip()
+    return meta, text[end + 5:].strip()
+
+
+_VALID_MEMORY_TYPES = {"user", "feedback", "project", "reference"}
+
+
+def load_project_memory(project_slug: str) -> dict:
+    """Return parsed memory files for a project slug.
+
+    Returns {"count": int, "index": str|None, "files": [...]}.
+    Each file dict: filename, name, description, type, body.
+    """
+    memory_dir = PROJECTS_DIR / project_slug / "memory"
+    if not memory_dir.exists():
+        return {"count": 0, "index": None, "files": []}
+
+    index_content: str | None = None
+    files: list = []
+
+    for mf in sorted(memory_dir.iterdir()):
+        if mf.suffix != ".md":
+            continue
+        try:
+            text = mf.read_text(encoding="utf-8")
+        except OSError as exc:
+            logging.warning("Could not read memory file %s: %s", mf, exc)
+            continue
+        if mf.name == "MEMORY.md":
+            index_content = text
+        else:
+            meta, body = _parse_frontmatter(text)
+            raw_type = meta.get("type", "")
+            files.append({
+                "filename": mf.name,
+                "name": meta.get("name", mf.stem),
+                "description": meta.get("description", ""),
+                "type": raw_type if raw_type in _VALID_MEMORY_TYPES else "",
+                "body": body,
+            })
+
+    return {"count": len(files), "index": index_content, "files": files}

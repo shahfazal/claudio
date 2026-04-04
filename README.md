@@ -13,6 +13,7 @@ Reads `~/.claude/` — the same directory Claude Code writes to. No cloud, no sy
 - Estimated Costº
 - Live search across titles and project paths
 - Estimated cost per session (see note below)
+- Per-project memory browser — reads Claude Code's `memory/` files, linked from the index and session sidebar
 - Dark / light / system theme (persisted in `localStorage`)
 - Click-to-copy for the project path
 
