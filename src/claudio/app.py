@@ -14,23 +14,25 @@ from claudio.parsers import (
     group_by_project,
     load_all_sessions,
     load_history,
+    load_project_memory,
     load_todos,
     parse_session,
     session_title,
     strip_home,
 )
-from claudio.templates import BASE, INDEX_TMPL, SESSION_TMPL
+from claudio.templates import BASE, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, brain_icon
 
 app = Flask(__name__)
 
 # Register inline templates with a DictLoader so {% extends %} works
 _dict_loader = DictLoader(
-    {"base.html": BASE, "index.html": INDEX_TMPL, "session.html": SESSION_TMPL}
+    {"base.html": BASE, "index.html": INDEX_TMPL, "session.html": SESSION_TMPL, "memory.html": MEMORY_TMPL}
 )
 _loaders = [ldr for ldr in [_dict_loader, app.jinja_env.loader] if ldr is not None]
 app.jinja_env.loader = ChoiceLoader(_loaders)
 app.jinja_env.globals.update(
-    session_title=session_title, fmt_ts=fmt_ts, fmt_cost=fmt_cost, strip_home=strip_home
+    session_title=session_title, fmt_ts=fmt_ts, fmt_cost=fmt_cost,
+    strip_home=strip_home, brain_icon=brain_icon,
 )
 
 
@@ -86,12 +88,34 @@ def session_view(session_id: str):
             if matched:
                 proj_history.extend(matched)
 
+    memory = load_project_memory(jsonl_path.parent.name)
+
     return render_template(
         "session.html",
         session=session,
         title=session_title(session),
         todos=todos,
         history=proj_history,
+        memory=memory,
+    )
+
+
+_SLUG_RE = re.compile(r"^[a-zA-Z0-9-]+$")
+
+
+@app.route("/memory/<project_slug>")
+def project_memory(project_slug: str):
+    if not _SLUG_RE.match(project_slug):
+        return "Invalid project slug", 400
+    memory = load_project_memory(project_slug)
+    if not memory["count"] and not memory["index"]:
+        return "No memory found for this project", 404
+    label = strip_home("/" + project_slug.lstrip("-").replace("-", "/"))
+    return render_template(
+        "memory.html",
+        memory=memory,
+        label=label,
+        project_slug=project_slug,
     )
 
 

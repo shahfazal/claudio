@@ -20,8 +20,9 @@ env/
 .coverage
 htmlcov/
 
-# Claude Code project instructions (personal, never commit)
+# Claude Code project files (personal, never commit)
 CLAUDE.md
+.claude/
 
 # Private grep patterns for pre-push hook (personal, never commit)
 .private-patterns

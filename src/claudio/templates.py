@@ -1,5 +1,91 @@
 """Jinja2 template strings for the Claudio web app."""
 
+from markupsafe import Markup
+
+
+def brain_icon(size: int = 11) -> Markup:
+    """Side-profile brain SVG icon (PD licence, icooon-mono via svgrepo.com)."""
+    # fill="currentColor" on the group inherits the parent element's CSS color,
+    # so the icon automatically themes with the badge/heading it sits in.
+    return Markup(
+        f'<svg width="{size}" height="{size}" viewBox="0 0 512 512" '
+        f'aria-hidden="true" style="vertical-align:-2px" '
+        f'xmlns="http://www.w3.org/2000/svg">'
+        f'<g fill="currentColor">'
+        f'<path d="M502.472,256.833c-6.491-61.075-40.69-110.46-86.082-144.101c-45.887-34.04-103.296-52.724-157.675-52.76'
+        f'c-56.443,0.009-91.262,7.173-114.312,17.082c-22.776,9.644-33.774,22.98-39.813,30.843'
+        f'c-24.68,4.029-49.262,18.348-68.77,38.697C15.107,168.343,0.054,197.423,0,229.381'
+        f'c0,34.97,8.112,64.52,24.299,86.498c14.354,19.596,35.288,32.472,60.207,37.148'
+        f'c1.638,9.456,5.56,20.003,13.672,29.647c8.412,10.06,19.888,17.383,33.454,22.032'
+        f'c13.584,4.675,29.329,6.836,47.234,6.853h75.084c1.85,4.729,4.108,9.236,7.217,13.213'
+        f'c7.642,9.785,18.649,16.656,31.834,20.96c13.248,4.33,28.859,6.288,46.995,6.296'
+        f'c8.909,0,17.348-0.407,24.512-0.752h0.026c5.136-0.274,9.555-0.469,12.698-0.469'
+        f'c9.466,0,18.526-2.302,26.318-6.819c7.793-4.498,14.257-11.166,18.676-19.357'
+        f'c2.232-4.154,3.702-8.51,4.8-12.902c16.727-3.126,30.604-9.236,41.407-17.028'
+        f'c12.663-9.121,21.367-20.11,27.283-30.09c11.556-19.552,16.267-41.247,16.285-61.384'
+        f'C511.982,286.064,508.511,270.08,502.472,256.833z M475.862,352.849'
+        f'c-4.649,7.837-11.352,16.241-20.916,23.121c-9.581,6.872-22.041,12.38-39.06,14.319'
+        f'l-9.519,1.072l-0.7,9.555c-0.292,4.127-1.576,8.767-3.737,12.76'
+        f'c-2.506,4.578-5.835,7.962-9.918,10.335c-4.1,2.356-9.006,3.71-14.78,3.718'
+        f'c-4.073,0-8.714,0.24-13.858,0.496l1.922-0.088l-1.914,0.088'
+        f'c-7.145,0.355-15.178,0.736-23.386,0.736c-21.943,0.035-38.299-3.356-48.747-8.864'
+        f'c-5.251-2.736-9.06-5.906-11.884-9.511c-2.807-3.622-4.711-7.74-5.782-12.884'
+        f'l-1.904-9.218h-92.812c-16.01,0-29.302-1.992-39.725-5.578'
+        f'c-10.44-3.622-17.94-8.678-23.28-15.054c-6.96-8.306-9.024-17.32-9.289-25.237'
+        f'l-0.31-10.077l-10.024-1.044C72.72,328.914,55.354,318.97,42.86,302.18'
+        f'c-12.424-16.815-19.791-41.3-19.791-72.798c-0.054-24.422,11.874-48.474,29.443-66.875'
+        f'c17.463-18.454,40.46-30.674,59.419-32.463l4.348-0.452l2.966-3.206'
+        f'c1.328-1.452,2.382-2.851,3.294-4.002c5.986-7.474,12.114-15.806,31.002-24.139'
+        f'c18.845-8.156,50.652-15.222,105.174-15.213c49.076-0.036,102.278,17.232,143.932,48.217'
+        f'c41.726,31.046,71.78,75.153,77.094,129.578l0.203,2.098l0.922,1.887'
+        f'c4.844,9.776,8.094,23.608,8.066,38.414C488.932,319.776,484.992,337.451,475.862,352.849z"/>'
+        f'<path d="M357.042,146.417h24.059c5.172,0,9.378-4.242,9.378-9.573c0-5.215-4.206-9.43-9.378-9.43h-24.059'
+        f'c-5.331,0-9.555,4.216-9.555,9.43C347.488,142.175,351.711,146.417,357.042,146.417z"/>'
+        f'<path d="M244.21,237.307c0,5.287,4.25,9.564,9.501,9.564c5.162,0,9.475-4.276,9.475-9.564v-51.82'
+        f'c0-2.399,0.709-2.958,0.886-3.179c3.02-2.966,14.274-2.966,22.164-2.966l0.301,0.106h62.226'
+        f'c1.204,0,2.48-0.106,3.906-0.106c5.012-0.221,11.202-0.434,13.796,2.072c1.647,1.611,2.604,5.19,2.604,9.988'
+        f'v31.809v1.416c-0.204,6.544-0.24,17.56,7.128,25.042c2.869,2.958,8.2,6.464,16.896,6.464h48.89'
+        f'c5.136,0,9.352-4.233,9.352-9.555c0-5.198-4.216-9.519-9.352-9.519h-48.89l-3.418-0.806'
+        f'c-1.736-1.797-1.621-8.332-1.621-11.467v-33.385c0-10.307-2.886-18.277-8.394-23.599'
+        f'c-8.484-8.138-20.022-7.801-27.629-7.483c-1.258,0-2.302,0.045-3.268,0.045h-31.364'
+        f'c0.372-2.622,0.372-5.26,0.274-7.633v-27.602c0-5.189-4.268-9.476-9.448-9.476'
+        f'c-5.286,0-9.43,4.286-9.43,9.476v27.752c0,2.222,0,5.738-0.47,6.65c0,0-1.301,0.832-6.314,0.832'
+        f'c-1.442,0-2.992,0-4.684,0c-12.92-0.16-27.778-0.204-36.615,8.474'
+        f'c-2.887,2.922-6.5,8.208-6.5,16.648V237.307z"/>'
+        f'<path d="M213.677,159.709c5.304,0,9.555-4.348,9.555-9.528v-13.594h15.93c5.154,0,9.413-4.268,9.413-9.554'
+        f'c0-5.162-4.259-9.493-9.413-9.493h-15.93v-10.467c0-5.233-4.251-9.528-9.555-9.528'
+        f'c-5.154,0-9.413,4.294-9.413,9.528v43.108C204.264,155.361,208.523,159.709,213.677,159.709z"/>'
+        f'<path d="M110.841,173.682h39.468c6.438-0.229,12.565-0.229,15.452,2.807c2.559,2.498,3.967,8.111,3.967,16.17'
+        f'v37.051c0,5.242,4.233,9.546,9.581,9.546c5.154,0,9.458-4.303,9.458-9.546v-7.882h14.886'
+        f'c5.251,0,9.44-4.277,9.44-9.51c0-5.251-4.188-9.599-9.44-9.599h-14.886v-10.06'
+        f'c0-13.672-3.135-23.351-9.626-29.736c-8.421-8.448-19.8-8.368-28.877-8.288h-39.423'
+        f'c-5.384,0-9.511,4.312-9.511,9.475C101.33,169.387,105.457,173.682,110.841,173.682z"/>'
+        f'<path d="M135.892,229.099c0-5.251-4.365-9.555-9.483-9.555H59.791c-5.26,0-9.555,4.304-9.555,9.555'
+        f'c0,5.233,4.295,9.528,9.555,9.528h24.148v17.339c0,5.286,4.188,9.519,9.386,9.519'
+        f'c5.402,0,9.59-4.233,9.59-9.519v-17.339h23.494C131.527,238.627,135.892,234.331,135.892,229.099z"/>'
+        f'<path d="M194.576,291.412c1.665,0,3.242,0,4.649,0h76.704c17.498,0,30.772-4.64,39.6-13.884'
+        f'c13.566-14.363,12.619-35.634,11.919-49.687c-0.124-2.683-0.248-5.206-0.248-7.323'
+        f'c0-5.296-4.25-9.51-9.608-9.51c-5.18,0-9.368,4.215-9.368,9.51c0,2.408,0.124,5.171,0.248,8.111'
+        f'c0.584,12.256,1.24,27.337-6.854,35.873c-4.941,5.26-13.682,7.89-25.689,7.89h-76.704'
+        f'c-1.337,0-2.7,0-4.348,0c-15.133-0.23-40.584-0.638-56.753,15.319'
+        f'c-9.068,8.944-13.681,21.545-13.681,37.396c0,5.153,4.17,9.52,9.484,9.52'
+        f'c5.18,0,9.51-4.366,9.51-9.52c0-10.768,2.594-18.579,8.049-23.918'
+        f'C161.935,290.934,181.612,291.235,194.576,291.412z"/>'
+        f'<path d="M323.96,332.616c0-5.162-4.171-9.502-9.475-9.502H194.107c-5.19,0-9.538,4.34-9.538,9.502'
+        f'c0,5.268,4.348,9.519,9.538,9.519h36.81v18.985c0,5.323,4.225,9.502,9.458,9.502'
+        f'c5.251,0,9.493-4.179,9.493-9.502v-18.985h64.617C319.788,342.135,323.96,337.884,323.96,332.616z"/>'
+        f'<path d="M377.887,370.065h-4.471v-17.693c0-5.384-4.18-9.528-9.475-9.528c-5.26,0-9.502,4.145-9.502,9.528'
+        f'v17.693h-32.941c-5.242,0-9.502,4.241-9.502,9.528c0,5.224,4.26,9.448,9.502,9.448h56.39'
+        f'c5.208,0,9.484-4.224,9.484-9.448C387.371,374.305,383.095,370.065,377.887,370.065z"/>'
+        f'<path d="M421.579,323.114v-15.523h3.419c5.357,0,9.599-4.17,9.599-9.43c0-5.251-4.242-9.555-9.599-9.555'
+        f'h-66.459c-5.225,0-9.511,4.304-9.511,9.555c0,5.26,4.286,9.43,9.511,9.43h43.983v15.523'
+        f'c0,5.358,4.313,9.502,9.556,9.502C417.311,332.616,421.579,328.472,421.579,323.114z"/>'
+        f'<path d="M451.333,347.909h-24.042c-5.304,0-9.546,4.18-9.546,9.467c0,5.286,4.241,9.43,9.546,9.43h24.042'
+        f'c5.33,0,9.616-4.144,9.616-9.43C460.95,352.089,456.663,347.909,451.333,347.909z"/>'
+        f'</g></svg>'
+    )
+
+
 BASE = """<!doctype html>
 <html lang="en" data-theme="system">
 <head>
@@ -103,7 +189,27 @@ BASE = """<!doctype html>
   .session-meta { display: flex; align-items: center; }
   .badge-msgs { background: var(--surface2); border-radius: 4px; padding: 2px 7px; font-size: 11px; color: var(--muted); }
   .badge-cost { background: var(--surface2); border-radius: 4px; padding: 2px 7px; font-size: 11px; color: var(--green); font-variant-numeric: tabular-nums; }
+  .badge-mem { font-size: 11px; color: var(--accent); text-decoration: none; }
+  .badge-mem:hover { text-decoration: underline; }
   .ts { font-size: 11px; color: var(--muted); }
+
+  /* ── Memory ─────────────────────────────────────────────────── */
+  .mem-type { border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; flex-shrink: 0; }
+  .mem-type-user      { background: rgba(90,156,245,0.15); color: var(--accent2); }
+  .mem-type-feedback  { background: rgba(245,158,11,0.15);  color: #f59e0b; }
+  .mem-type-project   { background: rgba(74,222,128,0.15);  color: var(--green); }
+  .mem-type-reference { background: rgba(167,139,250,0.15); color: var(--accent); }
+  .mem-item { padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; }
+  .mem-item-header { display: flex; align-items: center; gap: 6px; }
+  .mem-item-name { font-size: 12px; font-weight: 500; }
+  .mem-item-desc { font-size: 11px; color: var(--muted); padding-left: 2px; }
+  .mem-view-all { display: block; font-size: 11px; color: var(--accent2); margin-top: 8px; }
+  /* Memory full page */
+  .mem-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; }
+  .mem-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .mem-card-name { font-size: 14px; font-weight: 600; }
+  .mem-card-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .mem-card-body { font-size: 13px; white-space: pre-wrap; line-height: 1.75; background: var(--surface2); border-radius: 6px; padding: 10px 14px; word-break: break-word; }
   /* ── Rows layout (default) ──────────────────────────────────── */
   :root[data-layout="rows"] .session-list { display: flex; flex-direction: column; gap: 6px; }
   :root[data-layout="rows"] .session-card { flex-direction: row; align-items: center; gap: 12px; padding: 11px 16px; border-radius: 8px; }
@@ -310,6 +416,7 @@ INDEX_TMPL = """\
     <div class="project-header">
       <span class="project-name copy-path" data-path="{{ group.cwd }}" title="Click to copy full path">{{ group.label }}</span>
       <span class="project-count">{{ group.sessions | length }} session{{ 's' if group.sessions | length != 1 }}</span>
+      {% if group.memory_count %}<a class="badge-mem" href="{{ url_for('project_memory', project_slug=group.slug) }}">{{ brain_icon(11) }} {{ group.memory_count }} memor{{ 'ies' if group.memory_count != 1 else 'y' }}</a>{% endif %}
     </div>
     <div class="session-list">
       {% for s in group.sessions %}
@@ -435,6 +542,22 @@ SESSION_TMPL = """\
     <div class="pr-link">🔗 <a href="{{ session.pr_link }}" target="_blank" rel="noopener noreferrer">Pull Request</a></div>
     {% endif %}
 
+    {% if memory.files %}
+    <div class="side-section">
+      <h3>{{ brain_icon(11) }} Memory ({{ memory.files | length }})</h3>
+      {% for m in memory.files %}
+      <div class="mem-item">
+        <div class="mem-item-header">
+          {% if m.type %}<span class="mem-type mem-type-{{ m.type }}">{{ m.type }}</span>{% endif %}
+          <span class="mem-item-name">{{ m.name }}</span>
+        </div>
+        {% if m.description %}<div class="mem-item-desc">{{ m.description }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      <a class="mem-view-all" href="{{ url_for('project_memory', project_slug=session.project_slug) }}">View full memory →</a>
+    </div>
+    {% endif %}
+
     {% if todos %}
     <div class="side-section">
       <h3>Todos ({{ todos | length }})</h3>
@@ -455,6 +578,40 @@ SESSION_TMPL = """\
     </div>
     {% endif %}
   </div>
+</div>
+{% endblock %}
+"""
+
+MEMORY_TMPL = """\
+{% extends "base.html" %}
+{% block nav_extra %}
+<a href="{{ url_for('index') }}" style="font-size:13px;color:var(--muted)">← all sessions</a>
+{% endblock %}
+
+{% block body %}
+<div class="session-hdr">
+  <h1>Project Memory</h1>
+  <div class="session-hdr-meta">
+    <span>📁 {{ label }}</span>
+    <span>{{ brain_icon(13) }} {{ memory.count }} memor{{ 'ies' if memory.count != 1 else 'y' }}</span>
+  </div>
+</div>
+
+<div class="container" style="max-width:860px;padding-top:24px">
+  {% for m in memory.files %}
+  <div class="mem-card">
+    <div class="mem-card-header">
+      {% if m.type %}<span class="mem-type mem-type-{{ m.type }}">{{ m.type }}</span>{% endif %}
+      <span class="mem-card-name">{{ m.name }}</span>
+    </div>
+    {% if m.description %}<div class="mem-card-desc">{{ m.description }}</div>{% endif %}
+    {% if m.body %}<div class="mem-card-body">{{ m.body }}</div>{% endif %}
+  </div>
+  {% endfor %}
+
+  {% if not memory.files %}
+  <p style="color:var(--muted);font-size:13px">No memory files found for this project.</p>
+  {% endif %}
 </div>
 {% endblock %}
 """
