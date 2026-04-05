@@ -86,6 +86,26 @@ def brain_icon(size: int = 11) -> Markup:
     )
 
 
+def archive_icon(size: int = 11) -> Markup:
+    """File-archive (zip) SVG icon (Lucide, ISC licence). stroke="currentColor" for theming.
+
+    # Copyright (c) 2022 Lucide Contributors — ISC Licence
+    """
+    return Markup(
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" '
+        f'aria-hidden="true" style="vertical-align:-2px" '
+        f'xmlns="http://www.w3.org/2000/svg" fill="none" '
+        f'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        f'<path d="M13.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v11.5"/>'
+        f'<path d="M14 2v5a1 1 0 0 0 1 1h5"/>'
+        f'<path d="M8 12v-1"/>'
+        f'<path d="M8 18v-2"/>'
+        f'<path d="M8 7V6"/>'
+        f'<circle cx="8" cy="20" r="2"/>'
+        f'</svg>'
+    )
+
+
 BASE = """<!doctype html>
 <html lang="en" data-theme="system">
 <head>
@@ -191,6 +211,7 @@ BASE = """<!doctype html>
   .badge-cost { background: var(--surface2); border-radius: 4px; padding: 2px 7px; font-size: 11px; color: var(--green); font-variant-numeric: tabular-nums; }
   .badge-mem { font-size: 11px; color: var(--accent); text-decoration: none; }
   .badge-mem:hover { text-decoration: underline; }
+  .badge-compact { font-size: 11px; color: var(--muted); }
   .ts { font-size: 11px; color: var(--muted); }
 
   /* ── Memory ─────────────────────────────────────────────────── */
@@ -417,6 +438,8 @@ INDEX_TMPL = """\
       <span class="project-name copy-path" data-path="{{ group.cwd }}" title="Click to copy full path">{{ group.label }}</span>
       <span class="project-count">{{ group.sessions | length }} session{{ 's' if group.sessions | length != 1 }}</span>
       {% if group.memory_count %}<a class="badge-mem" href="{{ url_for('project_memory', project_slug=group.slug) }}">{{ brain_icon(11) }} {{ group.memory_count }} memor{{ 'ies' if group.memory_count != 1 else 'y' }}</a>{% endif %}
+      {%- set total_compact = group.sessions | map(attribute='compact_count') | map('default', 0) | sum %}
+      {% if total_compact %}<span class="badge-compact" title="Total compactions across all sessions">{{ archive_icon(11) }} {{ total_compact }} compaction{{ 's' if total_compact != 1 }}</span>{% endif %}
     </div>
     <div class="session-list">
       {% for s in group.sessions %}
@@ -430,7 +453,7 @@ INDEX_TMPL = """\
           {% if s.cost_unknown %}<span class="badge-cost" style="color:var(--muted)">≈ ?</span>
           {% elif s.cost_usd %}<span class="badge-cost">{{ fmt_cost(s.cost_usd) }}</span>{% endif %}
           <span class="ts">{{ fmt_ts(s.started_at) }}</span>
-          <span class="meta-compact">{{ s.message_count }} msg{{ 's' if s.message_count != 1 }}{% if s.cost_unknown %} · ≈ ?{% elif s.cost_usd %} · {{ fmt_cost(s.cost_usd) }}{% endif %}{% if s.started_at %} · {{ fmt_ts(s.started_at) }}{% endif %}</span>
+          <span class="meta-compact">{{ s.message_count }} msg{{ 's' if s.message_count != 1 }}{% if s.cost_unknown %} · ≈ ?{% elif s.cost_usd %} · {{ fmt_cost(s.cost_usd) }}{% endif %}{% if s.compact_count %} · {{ archive_icon(10) }} {{ s.compact_count }}×{% endif %}{% if s.started_at %} · {{ fmt_ts(s.started_at) }}{% endif %}</span>
         </div>
       </div>
       {% endfor %}
@@ -509,6 +532,7 @@ SESSION_TMPL = """\
       {%- if session.ended_at and session.ended_at != session.started_at %} → {{ fmt_ts(session.ended_at) }}{% endif %}
     </span>
     <span>💬 {{ session.message_count }} messages</span>
+    {% if session.compact_count %}<span title="Times this session was compacted">{{ archive_icon(12) }} compacted {{ session.compact_count }}×</span>{% endif %}
     {% if session.model %}<span style="font-family:monospace">{{ session.model }}</span>{% endif %}
     {% if session.cost_unknown %}<span>≈ unknown model</span>
     {% elif session.cost_usd %}<span>≈ {{ fmt_cost(session.cost_usd) }}</span>{% endif %}

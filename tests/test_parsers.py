@@ -128,6 +128,23 @@ def test_calc_cost_uses_model_pricing():
     assert _calc_cost("claude-unknown-model", usage) is None  # unknown model with tokens → None
 
 
+def test_parse_session_compact_count(tmp_path):
+    jf = tmp_path / "abc.jsonl"
+    jf.write_text(
+        '{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","timestamp":"2026-01-01T10:00:00.000Z"}\n'
+        '{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","timestamp":"2026-01-01T11:00:00.000Z"}\n'
+        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"hi"}]},"timestamp":"2026-01-01T12:00:00.000Z"}\n'
+    )
+    s = parse_session(jf)
+    assert s["compact_count"] == 2
+
+
+def test_parse_session_compact_count_zero(sample_jsonl):
+    # sample.jsonl must not contain compact_boundary events — this test depends on that
+    s = parse_session(sample_jsonl)
+    assert s["compact_count"] == 0
+
+
 def test_parse_session_timestamps(sample_jsonl):
     s = parse_session(sample_jsonl)
     assert s["started_at"] == "2026-01-01T09:59:59.000Z"
