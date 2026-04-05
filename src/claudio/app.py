@@ -20,7 +20,7 @@ from claudio.parsers import (
     session_title,
     strip_home,
 )
-from claudio.templates import BASE, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, brain_icon
+from claudio.templates import BASE, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, archive_icon, brain_icon
 
 app = Flask(__name__)
 
@@ -32,7 +32,7 @@ _loaders = [ldr for ldr in [_dict_loader, app.jinja_env.loader] if ldr is not No
 app.jinja_env.loader = ChoiceLoader(_loaders)
 app.jinja_env.globals.update(
     session_title=session_title, fmt_ts=fmt_ts, fmt_cost=fmt_cost,
-    strip_home=strip_home, brain_icon=brain_icon,
+    strip_home=strip_home, brain_icon=brain_icon, archive_icon=archive_icon,
 )
 
 

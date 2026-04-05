@@ -158,6 +158,7 @@ def parse_session(jsonl_path: Path) -> dict:
     model = None
     cost_usd = 0.0
     cost_unknown = False  # True if any message used an unpriced model with tokens
+    compact_count = 0
 
     with open(jsonl_path, encoding="utf-8", errors="replace") as fh:
         for raw in fh:
@@ -171,7 +172,10 @@ def parse_session(jsonl_path: Path) -> dict:
 
             t = obj.get("type")
 
-            if t == "ai-title":
+            if t == "system" and obj.get("subtype") == "compact_boundary":
+                compact_count += 1
+
+            elif t == "ai-title":
                 ai_title = ai_title or obj.get("aiTitle")
 
             elif t == "pr-link":
@@ -237,6 +241,7 @@ def parse_session(jsonl_path: Path) -> dict:
         "model": model,
         "cost_usd": cost_usd if (not cost_unknown and cost_usd > 0) else None,
         "cost_unknown": cost_unknown,
+        "compact_count": compact_count,
         "pr_link": pr_link,
         "path": str(jsonl_path),
     }
