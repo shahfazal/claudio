@@ -48,7 +48,7 @@ Open `http://127.0.0.1:5000`. That's it — `uv` creates a venv and installs dep
 ## Development
 
 ```bash
-uv run python -m pytest       # tests
+uv run python -m pytest       # 91 tests across parsers, routes, templates
 uv run python -m ruff check . # lint
 uv run python -m ruff format . # format
 ```
@@ -61,10 +61,11 @@ src/claudio/
 ├── parsers.py    JSONL parsing, data loading
 └── templates.py  Jinja2 template strings
 tests/
-├── fixtures/     Sample JSONL for tests
+├── fixtures/       Sample JSONL for tests
 ├── conftest.py
 ├── test_parsers.py
-└── test_routes.py
+├── test_routes.py
+└── test_templates.py
 ```
 
 ## Example session path
