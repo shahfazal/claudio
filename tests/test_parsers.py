@@ -1,17 +1,27 @@
 """Tests for claudio.parsers."""
 
+import json
+
 import pytest
 
 from claudio.parsers import (
     _calc_cost,
     _clean_user_text,
+    _extract_compact_title,
     _extract_text,
     _extract_tool_uses,
+    _parse_frontmatter,
+    _strip_markdown,
+    fmt_cost,
     fmt_ts,
     group_by_project,
+    load_history,
+    load_project_memory,
+    load_todos,
     parse_session,
     project_display,
     session_title,
+    strip_home,
 )
 
 # ---------------------------------------------------------------------------
@@ -278,3 +288,337 @@ def test_group_by_project_groups_correctly():
     # proj-b has the most recent session → comes first
     assert groups[0]["slug"] == "proj-b"
     assert len(groups[1]["sessions"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# fmt_cost
+# ---------------------------------------------------------------------------
+
+
+def test_fmt_cost_falsy_returns_empty():
+    assert fmt_cost(None) == ""
+    assert fmt_cost(0) == ""
+
+
+@pytest.mark.parametrize("cost,expected", [
+    (0.009,   "$0.0090"),   # below $0.01 -> 4 decimal
+    (0.01,    "$0.01"),     # boundary -> 2 decimal
+    (1.2345,  "$1.23"),     # normal
+])
+def test_fmt_cost_formatting(cost, expected):
+    assert fmt_cost(cost) == expected
+
+
+# ---------------------------------------------------------------------------
+# _strip_markdown
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("```python\ncode\n```\nafter",         "after"),           # code block
+    ("use `foo` here",                      "use foo here"),    # inline code
+    ("**bold** text",                       "bold text"),       # bold
+    ("_italic_ text",                       "italic text"),     # underscore
+    ("[click](https://example.com)",        "click"),           # link
+    ("> quoted",                            "quoted"),          # blockquote
+])
+def test_strip_markdown(raw, expected):
+    assert _strip_markdown(raw) == expected
+
+
+def test_strip_markdown_heading():
+    result = _strip_markdown("## My Heading\ntext")
+    assert "##" not in result
+    assert "My Heading" in result
+
+
+# ---------------------------------------------------------------------------
+# _extract_compact_title
+# ---------------------------------------------------------------------------
+
+
+def test_extract_compact_title_no_intro_returns_none():
+    assert _extract_compact_title("Just a regular user message.") is None
+
+
+def test_extract_compact_title_extracts_first_sentence():
+    text = (
+        "This session is being continued from a previous conversation that ran out of context."
+        " The summary below covers the earlier portion of the conversation.\n\n"
+        "Summary:\n1. Primary Request and Intent:\n   Fix the auth bug. It affects login.\n"
+        "2. Key Technical Concepts:\n   Auth flow"
+    )
+    assert _extract_compact_title(text) == "Fix the auth bug."
+
+
+# ---------------------------------------------------------------------------
+# _parse_frontmatter
+# ---------------------------------------------------------------------------
+
+
+def test_parse_frontmatter_no_frontmatter():
+    meta, body = _parse_frontmatter("just a body")
+    assert meta == {}
+    assert body == "just a body"
+
+
+def test_parse_frontmatter_unclosed():
+    text = "---\nkey: val\nno closing dashes"
+    meta, body = _parse_frontmatter(text)
+    assert meta == {}
+    assert body == text
+
+
+def test_parse_frontmatter_normal():
+    text = "---\nname: My File\ntype: user\n---\nBody content"
+    meta, body = _parse_frontmatter(text)
+    assert meta == {"name": "My File", "type": "user"}
+    assert body == "Body content"
+
+
+def test_parse_frontmatter_empty_body():
+    text = "---\nname: test\n---\n"
+    meta, body = _parse_frontmatter(text)
+    assert meta == {"name": "test"}
+    assert body == ""
+
+
+# ---------------------------------------------------------------------------
+# _calc_cost — additional branches
+# ---------------------------------------------------------------------------
+
+
+def test_calc_cost_synthetic_model_returns_zero():
+    usage = {"input_tokens": 10000, "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0, "output_tokens": 5000}
+    assert _calc_cost("<synthetic>", usage) == 0.0
+
+
+def test_calc_cost_unknown_model_zero_tokens_returns_zero():
+    usage = {"input_tokens": 0, "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0, "output_tokens": 0}
+    assert _calc_cost("claude-unknown-model", usage) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# parse_session — additional branches
+# ---------------------------------------------------------------------------
+
+
+def test_parse_session_pr_link_valid(tmp_path):
+    jf = tmp_path / "abc.jsonl"
+    jf.write_text(
+        '{"type":"pr-link","url":"https://github.com/org/repo/pull/1"}\n'
+        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"hi"}]},"timestamp":"2026-01-01T10:00:00.000Z"}\n'
+    )
+    s = parse_session(jf)
+    assert s["pr_link"] == "https://github.com/org/repo/pull/1"
+
+
+def test_parse_session_pr_link_invalid_scheme(tmp_path):
+    jf = tmp_path / "abc.jsonl"
+    jf.write_text(
+        '{"type":"pr-link","url":"javascript:alert(1)"}\n'
+        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"hi"}]},"timestamp":"2026-01-01T10:00:00.000Z"}\n'
+    )
+    s = parse_session(jf)
+    assert s["pr_link"] is None
+
+
+def test_parse_session_cost_unknown(tmp_path):
+    jf = tmp_path / "abc.jsonl"
+    jf.write_text(
+        '{"type":"assistant","message":{"role":"assistant","model":"claude-unknown-xyz",'
+        '"content":[{"type":"text","text":"hi"}],'
+        '"usage":{"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":500}},'
+        '"timestamp":"2026-01-01T10:00:00.000Z"}\n'
+    )
+    s = parse_session(jf)
+    assert s["cost_unknown"] is True
+    assert s["cost_usd"] is None
+
+
+def test_parse_session_malformed_json_lines_skipped(tmp_path):
+    jf = tmp_path / "abc.jsonl"
+    jf.write_text(
+        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"first"}]},"timestamp":"2026-01-01T10:00:00.000Z"}\n'
+        'this is not json at all\n'
+        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"second"}]},"timestamp":"2026-01-01T10:00:01.000Z"}\n'
+    )
+    s = parse_session(jf)
+    assert s["message_count"] == 2
+
+
+def test_parse_session_empty_message_skipped(tmp_path):
+    jf = tmp_path / "abc.jsonl"
+    jf.write_text(
+        '{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-6",'
+        '"content":[],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},'
+        '"timestamp":"2026-01-01T10:00:00.000Z"}\n'
+    )
+    s = parse_session(jf)
+    assert s["message_count"] == 0
+
+
+def test_parse_session_sidechain_message_included(tmp_path):
+    # Parser includes sidechain messages — template filters display, not parser
+    jf = tmp_path / "abc.jsonl"
+    jf.write_text(
+        '{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"text","text":"sidechain msg"}]},'
+        '"timestamp":"2026-01-01T10:00:00.000Z"}\n'
+    )
+    s = parse_session(jf)
+    assert s["message_count"] == 1
+    assert s["messages"][0]["is_sidechain"] is True
+
+
+# ---------------------------------------------------------------------------
+# strip_home
+# ---------------------------------------------------------------------------
+
+
+def test_strip_home_non_matching_path():
+    result = strip_home("/some/other/path")
+    assert result == "/some/other/path"
+
+
+def test_strip_home_none():
+    assert strip_home(None) is None
+
+
+# ---------------------------------------------------------------------------
+# load_history
+# ---------------------------------------------------------------------------
+
+
+def test_load_history_file_not_exists(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "HISTORY_FILE", tmp_path / "nonexistent.jsonl")
+    assert load_history() == {}
+
+
+def test_load_history_groups_and_sorts(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    hf = tmp_path / "history.jsonl"
+    hf.write_text(
+        json.dumps({"project": "/proj-a", "display": "older", "timestamp": "2026-01-01T09:00:00Z", "sessionId": "s1"}) + "\n" +
+        json.dumps({"project": "/proj-a", "display": "newer", "timestamp": "2026-01-01T10:00:00Z", "sessionId": "s2"}) + "\n" +
+        json.dumps({"project": "/proj-b", "display": "only", "timestamp": "2026-01-01T08:00:00Z", "sessionId": "s3"}) + "\n"
+    )
+    monkeypatch.setattr(parsers_module, "HISTORY_FILE", hf)
+    history = load_history()
+    assert set(history.keys()) == {"/proj-a", "/proj-b"}
+    assert history["/proj-a"][0]["display"] == "newer"  # sorted newest-first
+
+
+def test_load_history_malformed_line_skipped(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    hf = tmp_path / "history.jsonl"
+    hf.write_text(
+        "not json\n" +
+        json.dumps({"project": "/proj-a", "display": "ok", "timestamp": "2026-01-01T10:00:00Z", "sessionId": "s1"}) + "\n"
+    )
+    monkeypatch.setattr(parsers_module, "HISTORY_FILE", hf)
+    history = load_history()
+    assert len(history["/proj-a"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# load_todos
+# ---------------------------------------------------------------------------
+
+
+def test_load_todos_dir_not_exists(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path / "nonexistent")
+    assert load_todos() == {}
+
+
+def test_load_todos_basic(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
+    (tmp_path / "session-uuid-1234.json").write_text(json.dumps([{"content": "do something", "status": "pending"}]))
+    todos = load_todos()
+    assert "session-uuid-1234" in todos
+    assert todos["session-uuid-1234"][0]["content"] == "do something"
+
+
+def test_load_todos_agent_filename_splitting(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
+    (tmp_path / "my-session-id-agent-abc123.json").write_text(json.dumps([{"content": "task", "status": "done"}]))
+    todos = load_todos()
+    assert "my-session-id" in todos
+
+
+def test_load_todos_non_json_skipped(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
+    (tmp_path / "notes.txt").write_text("not a json file")
+    (tmp_path / "real.json").write_text(json.dumps([{"content": "task", "status": "pending"}]))
+    todos = load_todos()
+    assert "notes" not in todos
+    assert "real" in todos
+
+
+def test_load_todos_non_list_skipped(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
+    (tmp_path / "bad.json").write_text(json.dumps({"not": "a list"}))
+    todos = load_todos()
+    assert todos == {}
+
+
+# ---------------------------------------------------------------------------
+# load_project_memory
+# ---------------------------------------------------------------------------
+
+
+def test_load_project_memory_dir_not_exists(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
+    result = load_project_memory("nonexistent-slug")
+    assert result == {"count": 0, "index": None, "files": []}
+
+
+def test_load_project_memory_index_vs_files(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
+    mem_dir = tmp_path / "my-slug" / "memory"
+    mem_dir.mkdir(parents=True)
+    (mem_dir / "MEMORY.md").write_text("# Index content")
+    (mem_dir / "user_profile.md").write_text("---\nname: My Profile\ntype: user\n---\nBody here")
+    result = load_project_memory("my-slug")
+    assert result["count"] == 1
+    assert result["index"] == "# Index content"
+    assert result["files"][0]["name"] == "My Profile"
+    assert result["files"][0]["type"] == "user"
+    assert result["files"][0]["body"] == "Body here"
+
+
+def test_load_project_memory_invalid_type_blanked(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
+    mem_dir = tmp_path / "my-slug" / "memory"
+    mem_dir.mkdir(parents=True)
+    (mem_dir / "evil.md").write_text("---\ntype: <script>alert(1)</script>\n---\nBody")
+    result = load_project_memory("my-slug")
+    assert result["files"][0]["type"] == ""
+
+
+# ---------------------------------------------------------------------------
+# group_by_project — memory_count
+# ---------------------------------------------------------------------------
+
+
+def test_group_by_project_memory_count_excludes_memory_md(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
+    mem_dir = tmp_path / "proj-a" / "memory"
+    mem_dir.mkdir(parents=True)
+    (mem_dir / "MEMORY.md").write_text("# index")
+    (mem_dir / "feedback_foo.md").write_text("---\ntype: feedback\n---\nbody")
+    (mem_dir / "user_profile.md").write_text("---\ntype: user\n---\nbody")
+    sessions = [{"project_slug": "proj-a", "cwd": "/a", "started_at": "2026-01-01T00:00:00Z", "messages": [], "compact_count": 0}]
+    groups = group_by_project(sessions)
+    assert groups[0]["memory_count"] == 2  # MEMORY.md excluded

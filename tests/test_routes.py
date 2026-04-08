@@ -65,3 +65,120 @@ def test_theme_toggle_elements_present(client):
     assert "theme-btn" in html
     assert "cycleTheme" in html
     assert "claudio-theme" in html
+
+
+# ---------------------------------------------------------------------------
+# /memory route
+# ---------------------------------------------------------------------------
+
+
+def test_memory_route_invalid_slug(client):
+    # Slug with spaces/special chars — Flask won't route slashes but other chars reach the guard
+    resp = client.get("/memory/has spaces")
+    assert resp.status_code in (400, 404)  # Flask may 404 before slug guard fires
+
+
+def test_memory_route_invalid_slug_chars(client):
+    # Slug with angle bracket — must be rejected by the _SLUG_RE guard
+    resp = client.get("/memory/bad%3Cslug%3E")
+    assert resp.status_code == 400
+
+
+def test_memory_route_invalid_slug_dots(client):
+    resp = client.get("/memory/has.dots")
+    assert resp.status_code == 400
+
+
+def test_memory_route_not_found(client):
+    with patch("claudio.app.load_project_memory", return_value={"count": 0, "index": None, "files": []}):
+        resp = client.get("/memory/some-valid-slug")
+    assert resp.status_code == 404
+
+
+def test_memory_route_renders(client):
+    memory = {
+        "count": 1,
+        "index": "# Memory Index",
+        "files": [
+            {
+                "filename": "user_profile.md",
+                "name": "User Profile",
+                "description": "Who the user is",
+                "type": "user",
+                "body": "Senior engineer, prefers Python.",
+            }
+        ],
+    }
+    with patch("claudio.app.load_project_memory", return_value=memory):
+        resp = client.get("/memory/some-valid-slug")
+    assert resp.status_code == 200
+    assert b"User Profile" in resp.data
+    assert b"Senior engineer" in resp.data
+
+
+# ---------------------------------------------------------------------------
+# /session — additional branches
+# ---------------------------------------------------------------------------
+
+
+def test_session_view_with_pr_link(client, sample_jsonl, monkeypatch):
+    import claudio.app as app_module
+
+    monkeypatch.setattr(app_module, "PROJECTS_DIR", sample_jsonl.parent.parent)
+    original = parse_session(sample_jsonl)
+    original["pr_link"] = "https://github.com/org/repo/pull/42"
+    with patch("claudio.app.parse_session", return_value=original):
+        resp = client.get("/session/aaaabbbb-0000-0000-0000-000000000001")
+    assert resp.status_code == 200
+    assert b"github.com/org/repo/pull/42" in resp.data
+
+
+def test_session_view_cost_unknown_rendered(client, sample_jsonl, monkeypatch):
+    import claudio.app as app_module
+
+    monkeypatch.setattr(app_module, "PROJECTS_DIR", sample_jsonl.parent.parent)
+    original = parse_session(sample_jsonl)
+    original["cost_unknown"] = True
+    original["cost_usd"] = None
+    with patch("claudio.app.parse_session", return_value=original):
+        resp = client.get("/session/aaaabbbb-0000-0000-0000-000000000001")
+    assert resp.status_code == 200
+    assert b"unknown model" in resp.data
+
+
+def test_session_view_sidechain_not_in_transcript(client, tmp_path, monkeypatch):
+    import claudio.app as app_module
+
+    proj_dir = tmp_path / "projects" / "-Users-test-myproject"
+    proj_dir.mkdir(parents=True)
+    session_id = "cccccccc-0000-0000-0000-000000000001"
+    jf = proj_dir / f"{session_id}.jsonl"
+    jf.write_text(
+        '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"normal msg"}]},'
+        '"timestamp":"2026-01-01T10:00:00.000Z","cwd":"/Users/test/myproject"}\n'
+        '{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"text","text":"SIDECHAIN SECRET"}]},'
+        '"timestamp":"2026-01-01T10:00:01.000Z"}\n'
+    )
+    monkeypatch.setattr(app_module, "PROJECTS_DIR", tmp_path / "projects")
+    resp = client.get(f"/session/{session_id}")
+    assert resp.status_code == 200
+    assert b"normal msg" in resp.data
+    assert b"SIDECHAIN SECRET" not in resp.data
+
+
+def test_session_view_with_compaction(client, tmp_path, monkeypatch):
+    import claudio.app as app_module
+
+    proj_dir = tmp_path / "projects" / "-Users-test-myproject"
+    proj_dir.mkdir(parents=True)
+    session_id = "dddddddd-0000-0000-0000-000000000001"
+    jf = proj_dir / f"{session_id}.jsonl"
+    jf.write_text(
+        '{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","timestamp":"2026-01-01T10:00:00.000Z"}\n'
+        '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"hi"}]},'
+        '"timestamp":"2026-01-01T10:00:01.000Z","cwd":"/Users/test/myproject"}\n'
+    )
+    monkeypatch.setattr(app_module, "PROJECTS_DIR", tmp_path / "projects")
+    resp = client.get(f"/session/{session_id}")
+    assert resp.status_code == 200
+    assert b"compacted 1" in resp.data

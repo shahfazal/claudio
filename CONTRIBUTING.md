@@ -33,22 +33,27 @@ Open `http://127.0.0.1:5000` — it reads from your own `~/.claude/` automatical
 ## Testing
 
 ```bash
-uv run pytest       # tests
-uv run ruff check . # lint
-uv run ruff format . # format
+uv run python -m pytest       # run all tests (91 tests across 3 files)
+uv run python -m ruff check . # lint
+uv run python -m ruff format . # format
 ```
 
-Tests cover session parsing, path handling, and title extraction (compact summary and first-message fallback — no mocking needed, no network calls).
-If you're adding a new data source (e.g. a new `~/.claude/` directory)
-add a corresponding test with a fixture that mimics the file structure —
-don't rely on your own `~/.claude/` being present in tests.
+Note: use `python -m pytest`, not `uv run pytest` directly -- uv's script discovery does not find pytest reliably.
+
+Tests are split across three files:
+
+- `tests/test_parsers.py` -- unit tests for all parsing functions (session JSONL, history, todos, memory, cost calculation)
+- `tests/test_routes.py` -- Flask route integration tests (index, session view, memory route)
+- `tests/test_templates.py` -- template helper functions (icon output type and size)
+
+If you are adding a new data source (e.g. a new `~/.claude/` directory), add a corresponding test with a fixture that mimics the file structure -- do not rely on your own `~/.claude/` being present in tests. Use `monkeypatch` to redirect `PROJECTS_DIR`, `HISTORY_FILE`, or `TODOS_DIR` to a `tmp_path`.
 
 Key things to test:
 
 - Empty sessions (0 msgs) handled gracefully
 - Worktree paths parsed correctly
-- Malformed JSONL lines don't crash the parser
-- Search filtering returns correct counts
+- Malformed JSONL lines do not crash the parser
+- New routes tested for 200/400/404 cases
 
 ## What makes a good contribution
 
