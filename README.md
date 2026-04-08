@@ -85,6 +85,14 @@ A few caveats:
 
 Close enough to be useful for understanding relative session cost, but not a billing figure.
 
+## Changelog
+
+| Version | Commit | Feature |
+|---------|--------|---------|
+| v0.3.0 | b9a60e0 | Compaction count |
+| v0.2.0 | c7ef66d | Memory browser |
+| v0.1.0 | b2bd054 | Initial release |
+
 ## Disclaimer
 
 The name "Claudio" is a nod to Claude Code sessions — and also just a guy's
