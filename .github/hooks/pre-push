@@ -10,9 +10,10 @@ set -euo pipefail
 PATTERNS_FILE=".private-patterns"
 
 if [[ ! -f "$PATTERNS_FILE" ]]; then
-    echo "No $PATTERNS_FILE found — skipping private data check."
-    echo "Copy .private-patterns.example → .private-patterns and fill it in."
-    exit 0
+    echo "ERROR: $PATTERNS_FILE not found."
+    echo "Copy .private-patterns.example -> .private-patterns and fill it in."
+    echo "This file is gitignored and must exist before pushing."
+    exit 1
 fi
 
 FOUND=$(git grep -nEf "$PATTERNS_FILE" -- \

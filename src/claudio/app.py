@@ -100,7 +100,7 @@ def session_view(session_id: str):
     )
 
 
-_SLUG_RE = re.compile(r"^[a-zA-Z0-9-]+$")
+_SLUG_RE = re.compile(r"^[a-zA-Z0-9-]*[a-zA-Z0-9][a-zA-Z0-9-]*$")
 
 
 @app.route("/memory/<project_slug>")

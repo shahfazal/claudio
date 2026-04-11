@@ -111,6 +111,19 @@ def test_memory_route_invalid_slug_dots(client):
     assert resp.status_code == 400
 
 
+def test_memory_route_invalid_slug_all_dashes(client):
+    # All-dash slug passes character set but has no alphanumeric — must be rejected
+    resp = client.get("/memory/---")
+    assert resp.status_code == 400
+
+
+def test_memory_route_real_format_slug(client):
+    # Real Claude Code slugs start with a dash: -Users-aturing-projects-epiphany
+    with patch("claudio.app.load_project_memory", return_value={"count": 0, "index": None, "files": []}):
+        resp = client.get("/memory/-Users-aturing-projects-epiphany")
+    assert resp.status_code == 404  # valid slug, just not found
+
+
 def test_memory_route_not_found(client):
     with patch("claudio.app.load_project_memory", return_value={"count": 0, "index": None, "files": []}):
         resp = client.get("/memory/some-valid-slug")
