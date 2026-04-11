@@ -226,14 +226,17 @@ def test_session_title_priority4_no_date():
 
 
 def test_fmt_ts_iso_string():
-    result = fmt_ts("2026-01-01T10:00:01.000Z")
-    assert result == "2026-01-01 10:00"
+    from datetime import datetime
+    ts = "2026-01-01T10:00:01.000Z"
+    expected = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M")
+    assert fmt_ts(ts) == expected
 
 
 def test_fmt_ts_unix_ms():
-    # 1735689600000 ms = 2025-01-01 00:00 UTC
-    result = fmt_ts(1735689600000)
-    assert result.startswith("2025-01-01")
+    from datetime import datetime, timezone
+    ms = 1735689600000
+    expected = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    assert fmt_ts(ms) == expected
 
 
 def test_fmt_ts_empty():

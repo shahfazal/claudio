@@ -349,7 +349,7 @@ def fmt_ts(ts) -> str:
             dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
         else:
             dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d %H:%M")
+        return dt.astimezone().strftime("%Y-%m-%d %H:%M")
     except Exception:
         return str(ts)[:16]
 
