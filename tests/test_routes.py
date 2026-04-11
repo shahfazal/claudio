@@ -58,6 +58,28 @@ def test_index_session_title_precomputed(client, sample_jsonl):
     assert session["title"] == "Fix the login bug."
 
 
+def test_session_cards_are_links(client, sample_jsonl):
+    """Session cards must be <a> elements, not <div onclick>, for keyboard/a11y."""
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/")
+
+    html = resp.data.decode()
+    assert 'onclick="location.href' not in html
+    assert '<a class="session-card"' in html
+    assert 'href="/session/' in html
+
+
+
+def test_index_has_main_landmark(client):
+    """Page must have a <main> element for screen reader landmark navigation."""
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/")
+    assert b"<main>" in resp.data
+
+
 def test_theme_toggle_elements_present(client):
     with patch("claudio.app.load_all_sessions", return_value=[]):
         resp = client.get("/")
