@@ -87,8 +87,6 @@ def test_clean_user_text_passthrough():
 # parse_session
 # ---------------------------------------------------------------------------
 
-FIXTURES_DIR = __import__("pathlib").Path(__file__).parent / "fixtures"
-
 
 def test_parse_session_basic(sample_jsonl):
     s = parse_session(sample_jsonl)
@@ -625,3 +623,69 @@ def test_group_by_project_memory_count_excludes_memory_md(tmp_path, monkeypatch)
     sessions = [{"project_slug": "proj-a", "cwd": "/a", "started_at": "2026-01-01T00:00:00Z", "messages": [], "compact_count": 0}]
     groups = group_by_project(sessions)
     assert groups[0]["memory_count"] == 2  # MEMORY.md excluded
+
+
+# ---------------------------------------------------------------------------
+# _parse_cache — mtime-based caching
+# ---------------------------------------------------------------------------
+
+
+def test_parse_cache_populates_on_load(sample_jsonl, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", sample_jsonl.parent.parent)
+    parsers_module._parse_cache.clear()
+
+    from claudio.parsers import load_all_sessions
+    load_all_sessions()
+
+    assert sample_jsonl in parsers_module._parse_cache
+    _, cached = parsers_module._parse_cache[sample_jsonl]
+    assert cached["session_id"] == "aaaabbbb-0000-0000-0000-000000000001"
+
+
+def test_parse_cache_invalidates_on_mtime_change(sample_jsonl, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", sample_jsonl.parent.parent)
+    parsers_module._parse_cache.clear()
+
+    from claudio.parsers import load_all_sessions
+    load_all_sessions()
+
+    # Simulate stale cache entry from a previous run
+    parsers_module._parse_cache[sample_jsonl] = (0.0, {"stale": True})
+    load_all_sessions()
+
+    _, cached = parsers_module._parse_cache[sample_jsonl]
+    assert "stale" not in cached
+    assert "session_id" in cached
+
+
+# ---------------------------------------------------------------------------
+# sort key — numeric timestamps
+# ---------------------------------------------------------------------------
+
+
+def test_load_all_sessions_sort_handles_numeric_timestamp(tmp_path, monkeypatch):
+    import claudio.parsers as parsers_module
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
+    parsers_module._parse_cache.clear()
+
+    proj = tmp_path / "-Users-test-proj"
+    proj.mkdir()
+
+    # Session with ISO timestamp
+    (proj / "aaaaaaaa-0000-0000-0000-000000000001.jsonl").write_text(
+        '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"iso"}]},'
+        '"timestamp":"2026-06-01T12:00:00.000Z","cwd":"/Users/test/proj"}\n'
+    )
+    # Session with numeric timestamp (ms) — older
+    (proj / "aaaaaaaa-0000-0000-0000-000000000002.jsonl").write_text(
+        '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"num"}]},'
+        '"timestamp":1700000000000,"cwd":"/Users/test/proj"}\n'
+    )
+
+    from claudio.parsers import load_all_sessions
+    sessions = load_all_sessions()
+    assert len(sessions) == 2
+    # ISO (newer) should sort first
+    assert sessions[0]["started_at"] == "2026-06-01T12:00:00.000Z"

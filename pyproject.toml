@@ -11,9 +11,6 @@ requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = ["flask>=3.0"]
 
-[project.optional-dependencies]
-dev = ["pytest", "ruff"]
-
 [project.scripts]
 claudio = "claudio.app:main"
 

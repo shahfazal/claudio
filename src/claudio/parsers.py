@@ -13,6 +13,10 @@ TODOS_DIR = CLAUDE_DIR / "todos"
 
 _STRIP_TAG_RE = re.compile(r"<([a-z][a-z_-]*)>.*?</\1>", re.DOTALL | re.IGNORECASE)
 
+# Per-file parse cache: path -> (mtime, parsed_session).
+# Avoids re-parsing unchanged JSONL on every request.
+_parse_cache: dict = {}
+
 # ---------------------------------------------------------------------------
 # MODEL PRICING TABLE — update when Anthropic changes rates
 # Keys are exact model IDs as they appear in session JSONL.
@@ -257,13 +261,26 @@ def load_all_sessions() -> list:
             continue
         for jf in sorted(proj_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True):
             try:
-                s = parse_session(jf)
+                mtime = jf.stat().st_mtime
+                if jf in _parse_cache and _parse_cache[jf][0] == mtime:
+                    s = _parse_cache[jf][1]
+                else:
+                    s = parse_session(jf)
+                    _parse_cache[jf] = (mtime, s)
                 s["project_slug"] = proj_dir.name
                 sessions.append(s)
             except Exception as exc:
-                logging.warning("Failed to parse %s: %s", jf, exc)
+                logging.warning("Failed to parse %s: %s", jf, exc, exc_info=True)
 
-    sessions.sort(key=lambda s: s.get("started_at") or "", reverse=True)
+    def _sort_key(s):
+        ts = s.get("started_at")
+        if not ts:
+            return ""
+        if isinstance(ts, (int, float)):
+            return datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat()
+        return ts
+
+    sessions.sort(key=_sort_key, reverse=True)
     return sessions
 
 

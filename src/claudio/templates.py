@@ -406,22 +406,14 @@ function showCopyTip(el) {
   _tipTimer = setTimeout(() => _tip.classList.remove('show'), 1500);
 }
 
-function execCopy(path) {
-  const ta = Object.assign(document.createElement('textarea'), { value: path });
-  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-  document.body.appendChild(ta);
-  ta.focus(); ta.select();
-  try { document.execCommand('copy'); } catch (_) {}
-  ta.remove();
-}
-
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-path]');
   if (!el) return;
-  const path = el.dataset.path;
-  navigator.clipboard.writeText(path)
+  // navigator.clipboard requires a secure context (HTTPS or localhost).
+  // Fail silently if unavailable — no false "Copied!" tooltip.
+  navigator.clipboard.writeText(el.dataset.path)
     .then(() => showCopyTip(el))
-    .catch(() => { execCopy(path); showCopyTip(el); });
+    .catch(() => {});
 });
 </script>
 </body>
@@ -499,6 +491,7 @@ search.addEventListener('input', () => {
     const proj  = card.closest('.project-group')?.dataset.project || '';
     const match = !q || title.includes(q) || proj.includes(q);
     card.classList.toggle('hidden', !match);
+    // highlight() calls esc() on all user content before inserting <mark> tags — XSS safe.
     card.querySelector('.session-title').innerHTML = highlight(card.dataset.rawTitle || title, q);
   });
 
