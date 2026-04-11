@@ -130,8 +130,8 @@ BASE = """<!doctype html>
     --surface2: #22263a;
     --border: #2e3350;
     --text: #e2e4ef;
-    --muted: #7a7f99;
-    --accent: #7c6af7;
+    --muted: #8c91ad;
+    --accent: #8778f7;
     --accent2: #5a9cf5;
     --user-bg: #1e2640;
     --asst-bg: #151820;
@@ -146,8 +146,8 @@ BASE = """<!doctype html>
     --surface2: #eef0f6;
     --border: #d8dbe8;
     --text: #1a1d27;
-    --muted: #6b7080;
-    --accent: #6c5ce7;
+    --muted: #636877;
+    --accent: #6055d8;
     --accent2: #2563eb;
     --user-bg: #eef2ff;
     --asst-bg: #f5f7fa;
@@ -203,8 +203,8 @@ BASE = """<!doctype html>
   .project-name { font-size: 13px; font-weight: 600; color: var(--muted); font-family: monospace; }
   .project-count { font-size: 12px; color: var(--muted); }
   /* ── Session list — shared ──────────────────────────────────── */
-  .session-card { background: var(--surface); border: 1px solid var(--border); display: flex; transition: border-color 0.15s, box-shadow 0.15s; cursor: pointer; }
-  .session-card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+  .session-card { background: var(--surface); border: 1px solid var(--border); display: flex; transition: border-color 0.15s, box-shadow 0.15s; cursor: pointer; text-decoration: none; color: inherit; }
+  .session-card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,0.15); text-decoration: none; }
   .session-title { font-size: 13px; font-weight: 500; line-height: 1.4; overflow: hidden; }
   .session-meta { display: flex; align-items: center; }
   .badge-msgs { background: var(--surface2); border-radius: 4px; padding: 2px 7px; font-size: 11px; color: var(--muted); }
@@ -220,6 +220,12 @@ BASE = """<!doctype html>
   .mem-type-feedback  { background: rgba(245,158,11,0.15);  color: #f59e0b; }
   .mem-type-project   { background: rgba(74,222,128,0.15);  color: var(--green); }
   .mem-type-reference { background: rgba(167,139,250,0.15); color: var(--accent); }
+  :root[data-theme="light"] .mem-type-feedback { color: #92400e; }
+  :root[data-theme="light"] .mem-type-project  { color: #166534; }
+  @media (prefers-color-scheme: light) {
+    :root[data-theme="system"] .mem-type-feedback { color: #92400e; }
+    :root[data-theme="system"] .mem-type-project  { color: #166534; }
+  }
   .mem-item { padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; }
   .mem-item-header { display: flex; align-items: center; gap: 6px; }
   .mem-item-name { font-size: 12px; font-weight: 500; }
@@ -282,7 +288,7 @@ BASE = """<!doctype html>
   .main-panel { border-right: 1px solid var(--border); overflow: auto; }
   .side-panel { padding: 16px; overflow: auto; }
   .side-section { margin-bottom: 24px; }
-  .side-section h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .side-section h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
   .history-item { font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); color: var(--text); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .todo-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
   .todo-item.done { color: var(--muted); text-decoration: line-through; }
@@ -335,7 +341,7 @@ BASE = """<!doctype html>
     </a>
   </div>
 </nav>
-{% block body %}{% endblock %}
+<main>{% block body %}{% endblock %}</main>
 
 <script>
 const THEMES = [
@@ -443,10 +449,10 @@ INDEX_TMPL = """\
     </div>
     <div class="session-list">
       {% for s in group.sessions %}
-      <div class="session-card"
-           data-title="{{ s.title | lower }}"
-           data-raw-title="{{ s.title }}"
-           onclick="location.href='{{ url_for('session_view', session_id=s.session_id) }}'">
+      <a class="session-card"
+         href="{{ url_for('session_view', session_id=s.session_id) }}"
+         data-title="{{ s.title | lower }}"
+         data-raw-title="{{ s.title }}">
         <span class="session-title">{{ s.title }}</span>
         <div class="session-meta">
           <span class="badge-msgs">{{ s.message_count }} msg{{ 's' if s.message_count != 1 }}</span>
@@ -455,7 +461,7 @@ INDEX_TMPL = """\
           <span class="ts">{{ fmt_ts(s.started_at) }}</span>
           <span class="meta-compact">{{ s.message_count }} msg{{ 's' if s.message_count != 1 }}{% if s.cost_unknown %} · ≈ ?{% elif s.cost_usd %} · {{ fmt_cost(s.cost_usd) }}{% endif %}{% if s.compact_count %} · {{ archive_icon(10) }} {{ s.compact_count }}×{% endif %}{% if s.started_at %} · {{ fmt_ts(s.started_at) }}{% endif %}</span>
         </div>
-      </div>
+      </a>
       {% endfor %}
     </div>
   </div>
@@ -568,7 +574,7 @@ SESSION_TMPL = """\
 
     {% if memory.files %}
     <div class="side-section">
-      <h3>{{ brain_icon(11) }} Memory ({{ memory.files | length }})</h3>
+      <h2>{{ brain_icon(11) }} Memory ({{ memory.files | length }})</h2>
       {% for m in memory.files %}
       <div class="mem-item">
         <div class="mem-item-header">
@@ -584,7 +590,7 @@ SESSION_TMPL = """\
 
     {% if todos %}
     <div class="side-section">
-      <h3>Todos ({{ todos | length }})</h3>
+      <h2>Todos ({{ todos | length }})</h2>
       {% for todo in todos %}
       <div class="todo-item {{ 'done' if todo.status == 'completed' else '' }}">
         <span class="todo-dot status-{{ todo.status }}"></span>{{ todo.content }}
@@ -595,7 +601,7 @@ SESSION_TMPL = """\
 
     {% if history %}
     <div class="side-section">
-      <h3>Command history</h3>
+      <h2>Command history</h2>
       {% for h in history[:50] %}{% if h.display %}
       <div class="history-item" title="{{ h.display }}">{{ h.display }}</div>
       {% endif %}{% endfor %}
