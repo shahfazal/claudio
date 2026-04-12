@@ -92,7 +92,7 @@ def _calc_cost(model: str, usage: dict) -> float | None:
         return 0.0
     rates = PRICING.get(model)
     if rates is None:
-        # Unknown model — caller must decide how to surface this
+        # Unknown model; caller must decide how to surface this
         total_tokens = (
             usage.get("input_tokens", 0)
             + usage.get("cache_creation_input_tokens", 0)
@@ -415,13 +415,13 @@ def fmt_ts(ts) -> str:
 
 
 def session_title(s: dict) -> str:
-    # 1. Compact summary — first sentence of "Primary Request and Intent"
+    # 1. Compact summary: first sentence of "Primary Request and Intent"
     if s.get("compact_title"):
         return s["compact_title"]
-    # 2. ai-title event stored in JSONL (no API call — already local)
+    # 2. ai-title event stored in JSONL (no API call, already local)
     if s.get("ai_title"):
         return s["ai_title"]
-    # 3. Cleaned first user message — strip markdown, truncate, title-case
+    # 3. Cleaned first user message: strip markdown, truncate, title-case
     for m in s.get("messages", []):
         if m["role"] == "user" and m["text"].strip():
             t = m["text"].strip()
@@ -430,7 +430,7 @@ def session_title(s: dict) -> str:
             clean = _strip_markdown(t)
             if clean:
                 return clean[:80].title()
-    # 4. Session <date> — last resort
+    # 4. Session <date>: last resort
     date = str(s.get("started_at") or "")[:10]
     return f"Session {date}" if date else "Session"
 

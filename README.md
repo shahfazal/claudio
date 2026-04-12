@@ -2,7 +2,7 @@
 
 Browse your [Claude Code](https://claude.ai/code) sessions in a local web app.
 
-Reads `~/.claude/` - the same directory Claude Code writes to. No cloud, no sync, no accounts.
+Reads `~/.claude/` — the same directory Claude Code writes to. No cloud, no sync, no accounts.
 
 <img width="718" height="388" alt="image" src="https://github.com/user-attachments/assets/78ae2709-8b61-423a-be58-8dfc8acd006b" />
 
@@ -80,7 +80,7 @@ tests/
 
 ## Cost estimates
 
-The cost shown per session is a **locally calculated estimate** — not a figure from Anthropic. Claudio reads the token usage logged in each assistant message (`input_tokens`, `output_tokens`, cache tokens) and multiplies by the published per-model rates.
+The cost shown per session is a **locally calculated estimate**, not a figure from Anthropic. Claudio reads the token usage logged in each assistant message (`input_tokens`, `output_tokens`, cache tokens) and multiplies by the published per-model rates.
 
 A few caveats:
 
@@ -141,13 +141,13 @@ This is a **hobby project**, not production software. Enjoy it while it works.
 
 ## Disclaimer
 
-The name "Claudio" is a nod to Claude Code sessions — and also just a guy's
+The name "Claudio" is a nod to Claude Code sessions, and also just a guy's
 name. Any resemblance to AI assistants, living or dead, is purely coincidental.
 
 Claudio is an independent open-source tool for browsing locally stored Claude
 Code session files on your own machine. It is not affiliated with, endorsed by,
 or sponsored by Anthropic. "Claude" is a trademark of Anthropic. Claudio simply
-reads files that Claude Code writes to ~/.claude/ — it has no connection to
+reads files that Claude Code writes to ~/.claude/ and has no connection to
 Anthropic's servers or services beyond what Claude Code itself already does.
 
 ## License

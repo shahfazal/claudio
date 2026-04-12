@@ -128,6 +128,12 @@ def test_parse_session_compact_count(tmp_path):
     assert s["compact_count"] == 2
 
 
+def test_parse_session_compact_count_zero(sample_jsonl):
+    # sample.jsonl must not contain compact_boundary events: this test depends on that
+    s = parse_session(sample_jsonl)
+    assert s["compact_count"] == 0
+
+
 def test_parse_session_timestamps(sample_jsonl):
     s = parse_session(sample_jsonl)
     assert s["started_at"] == "2026-01-01T09:59:59.000Z"
@@ -353,12 +359,12 @@ def test_parse_frontmatter_normal():
 
 
 # ---------------------------------------------------------------------------
-# _calc_cost — additional branches
+# _calc_cost: additional branches
 # ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
-# parse_session — additional branches
+# parse_session: additional branches
 # ---------------------------------------------------------------------------
 
 
@@ -418,7 +424,7 @@ def test_parse_session_empty_message_skipped(tmp_path):
 
 
 def test_parse_session_sidechain_message_included(tmp_path):
-    # Parser includes sidechain messages — template filters display, not parser
+    # Parser includes sidechain messages: template filters display, not parser
     jf = tmp_path / "abc.jsonl"
     jf.write_text(
         '{"type":"user","isSidechain":true,"message":{"role":"user","content":[{"type":"text","text":"sidechain msg"}]},'
@@ -591,7 +597,7 @@ def test_load_project_memory_invalid_type_blanked(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# group_by_project — memory_count
+# group_by_project: memory_count
 # ---------------------------------------------------------------------------
 
 
@@ -618,7 +624,7 @@ def test_group_by_project_memory_count_excludes_memory_md(tmp_path, monkeypatch)
 
 
 # ---------------------------------------------------------------------------
-# _parse_cache — mtime-based caching
+# _parse_cache: mtime-based caching
 # ---------------------------------------------------------------------------
 
 
@@ -657,7 +663,7 @@ def test_parse_cache_invalidates_on_mtime_change(sample_jsonl, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# sort key — numeric timestamps
+# sort key: numeric timestamps
 # ---------------------------------------------------------------------------
 
 
@@ -675,7 +681,7 @@ def test_load_all_sessions_sort_handles_numeric_timestamp(tmp_path, monkeypatch)
         '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"iso"}]},'
         '"timestamp":"2026-06-01T12:00:00.000Z","cwd":"/Users/test/proj"}\n'
     )
-    # Session with numeric timestamp (ms) — older
+    # Session with numeric timestamp (ms): older
     (proj / "aaaaaaaa-0000-0000-0000-000000000002.jsonl").write_text(
         '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"num"}]},'
         '"timestamp":1700000000000,"cwd":"/Users/test/proj"}\n'

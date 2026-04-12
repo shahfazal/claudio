@@ -70,14 +70,20 @@ def test_session_cards_are_links(client, sample_jsonl):
 # ---------------------------------------------------------------------------
 
 
+def test_memory_route_invalid_slug(client):
+    # Slug with spaces/special chars: Flask won't route slashes but other chars reach the guard
+    resp = client.get("/memory/has spaces")
+    assert resp.status_code in (400, 404)  # Flask may 404 before slug guard fires
+
+
 def test_memory_route_invalid_slug_chars(client):
-    # Slug with angle bracket — must be rejected by the _SLUG_RE guard
+    # Slug with angle bracket: must be rejected by the _SLUG_RE guard
     resp = client.get("/memory/bad%3Cslug%3E")
     assert resp.status_code == 400
 
 
 def test_memory_route_invalid_slug_all_dashes(client):
-    # All-dash slug passes character set but has no alphanumeric — must be rejected
+    # All-dash slug passes character set but has no alphanumeric: must be rejected
     resp = client.get("/memory/---")
     assert resp.status_code == 400
 
@@ -112,7 +118,7 @@ def test_memory_route_renders(client):
 
 
 # ---------------------------------------------------------------------------
-# /session — additional branches
+# /session: additional branches
 # ---------------------------------------------------------------------------
 
 
@@ -159,3 +165,154 @@ def test_session_view_sidechain_not_in_transcript(client, tmp_path, monkeypatch)
     assert resp.status_code == 200
     assert b"normal msg" in resp.data
     assert b"SIDECHAIN SECRET" not in resp.data
+
+
+def test_session_view_with_compaction(client, tmp_path, monkeypatch):
+    import claudio.app as app_module
+
+    proj_dir = tmp_path / "projects" / "-Users-test-myproject"
+    proj_dir.mkdir(parents=True)
+    session_id = "dddddddd-0000-0000-0000-000000000001"
+    jf = proj_dir / f"{session_id}.jsonl"
+    jf.write_text(
+        '{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","timestamp":"2026-01-01T10:00:00.000Z"}\n'
+        '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"hi"}]},'
+        '"timestamp":"2026-01-01T10:00:01.000Z","cwd":"/Users/test/myproject"}\n'
+    )
+    monkeypatch.setattr(app_module, "PROJECTS_DIR", tmp_path / "projects")
+    resp = client.get(f"/session/{session_id}")
+    assert resp.status_code == 200
+    assert b"compacted 1" in resp.data
+
+
+# ---------------------------------------------------------------------------
+# /stats route
+# ---------------------------------------------------------------------------
+
+
+def test_stats_returns_200(client):
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/stats")
+    assert resp.status_code == 200
+
+
+def test_stats_empty_sessions(client):
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/stats")
+    assert b"No session data" in resp.data
+
+
+def test_stats_contains_chart_canvases(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/stats")
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert "projectChart" in html
+    assert "costChart" in html
+
+
+def test_stats_payload_keys(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/stats")
+    html = resp.data.decode()
+    assert "sessions_raw" in html
+    assert "top_by_cost" in html
+    assert "by_project" in html
+
+
+def test_stats_nav_button_present(client):
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/")
+    assert b"stats-btn" in resp.data
+    assert b"/stats" in resp.data
+
+
+def test_stats_date_filter_limits_sessions(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        # Filter to a future range; session started 2026-01-01, so nothing should appear
+        resp = client.get("/stats?from=2030-01-01&to=2030-12-31")
+    assert resp.status_code == 200
+    assert b"No session data" in resp.data
+
+
+def test_stats_date_filter_shows_sessions_in_range(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/stats?from=2025-01-01&to=2030-12-31")
+    assert resp.status_code == 200
+    assert b"No session data found" not in resp.data
+
+
+def test_stats_date_filter_invalid_ignored(client):
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/stats?from=not-a-date&to=also-bad")
+    assert resp.status_code == 200
+
+
+def test_stats_date_filter_inverted_range_swapped(client, sample_jsonl):
+    """from > to should be silently swapped so the filter still matches."""
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        # Session is from 2026-01-01; supply inverted range that covers it after swapping
+        resp = client.get("/stats?from=2030-12-31&to=2025-01-01")
+    assert resp.status_code == 200
+    # After swap: from=2025-01-01, to=2030-12-31 -- session is within range
+    assert b"No session data found" not in resp.data
+
+
+def test_stats_has_date_picker(client):
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/stats")
+    html = resp.data.decode()
+    assert 'input type="date"' in html or "type=date" in html
+    assert "apply" in html
+
+
+def test_stats_date_picker_prefilled(client):
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/stats?from=2026-01-01&to=2026-03-31")
+    html = resp.data.decode()
+    assert "2026-01-01" in html
+    assert "2026-03-31" in html
+
+
+def test_stats_heatmap_present_with_sessions(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/stats")
+    html = resp.data.decode()
+    assert "heatmapChart" in html
+    assert "Activity heatmap" in html
+    assert "d3.min.js" in html
+
+
+def test_stats_heatmap_absent_when_no_sessions(client):
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/stats")
+    assert b"heatmapChart" not in resp.data
+
+
+def test_stats_shows_avg_cost_and_messages(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/stats")
+    html = resp.data.decode()
+    assert "avg cost" in html.lower()
+    assert "messages" in html.lower()
