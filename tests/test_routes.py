@@ -307,6 +307,23 @@ def test_stats_heatmap_absent_when_no_sessions(client):
     assert b"heatmapChart" not in resp.data
 
 
+def test_stats_cumulative_chart_present(client, sample_jsonl):
+    """Cumulative cost chart must appear when sessions exist."""
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/stats")
+    assert b"cumulativeCostChart" in resp.data
+
+
+def test_stats_cumulative_chart_absent_when_no_sessions(client):
+    """Cumulative cost chart must not render when there are no sessions."""
+    with patch("claudio.app.load_all_sessions", return_value=[]):
+        resp = client.get("/stats")
+    assert b"cumulativeCostChart" not in resp.data
+
+
 def test_stats_shows_avg_cost_and_messages(client, sample_jsonl):
     session = parse_session(sample_jsonl)
     session["project_slug"] = "-Users-test-myproject"

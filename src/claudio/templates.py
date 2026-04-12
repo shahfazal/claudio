@@ -210,8 +210,9 @@ BASE = """<!doctype html>
   .nav-spacer { flex: 1; }
 
   /* Theme toggle + GitHub icon */
-  .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 10px; display: flex; align-items: center; gap: 5px; white-space: nowrap; transition: border-color 0.15s, color 0.15s; }
+  .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 10px; height: 32px; min-width: 68px; display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; transition: border-color 0.15s, color 0.15s; }
   .theme-btn:hover { border-color: var(--accent); color: var(--text); }
+  .theme-btn.active { border-color: var(--accent); color: var(--text); }
   .github-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); transition: border-color 0.15s, color 0.15s; flex-shrink: 0; }
   .github-btn:hover { border-color: var(--accent); color: var(--text); text-decoration: none; }
   .stats-btn { text-decoration: none; }
@@ -404,7 +405,7 @@ BASE = """<!doctype html>
       <span id="theme-icon">💻</span>
       <span id="theme-label">system</span>
     </button>
-    <a class="theme-btn stats-btn" href="{{ url_for('stats') }}" title="Usage statistics">{{ pie_icon(13) }} stats</a>
+    <a class="theme-btn stats-btn{% if request.endpoint == 'stats' %} active{% endif %}" href="{{ url_for('stats') }}" title="Usage statistics">{{ pie_icon(13) }} stats</a>
     <a class="github-btn" href="https://github.com/shahfazal/claudio" target="_blank" rel="noopener noreferrer" title="View on GitHub">
       <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
@@ -461,6 +462,10 @@ function applyLayout(key) {
   const next = LAYOUTS[(idx + 1) % LAYOUTS.length];
   document.getElementById('layout-icon').textContent = next.icon;
   document.getElementById('layout-label').textContent = next.label;
+  // Layout button is only meaningful on the index page; don't mark it active elsewhere
+  {% if request.endpoint == 'index' %}
+  document.getElementById('layout-btn').classList.add('active');
+  {% endif %}
 }
 
 function cycleLayout() {
@@ -871,6 +876,7 @@ STATS_TMPL = """\
 
   /* Heatmap hero */
   .heatmap-card { margin-top: 18px; margin-bottom: 14px; overflow-x: auto; }
+  .cumulative-card { margin-bottom: 14px; }
 
   /* Empty state overlay */
   .cost-grid-wrap { position: relative; }
@@ -965,6 +971,16 @@ STATS_TMPL = """\
   </div>
   {% endif %}
 
+  <!-- Cumulative cost over time (D3 line chart, spec: cumulative-cost-chart.md)
+       Placed between heatmap and cost grid. Only shown when sessions exist
+       (no ghost state — a flat/empty line conveys nothing useful). -->
+  {% if total_sessions > 0 %}
+  <div class="chart-card cumulative-card">
+    <h2>Cumulative cost over time</h2>
+    <div id="cumulativeCostChart"></div>
+  </div>
+  {% endif %}
+
   <!-- Cost charts (2-column grid) -->
   <div class="cost-grid-wrap">
     {% if total_sessions == 0 %}
@@ -977,11 +993,11 @@ STATS_TMPL = """\
       <div class="chart-card">
         <h2>Cost by project</h2>
         {% if total_sessions > 0 and payload.by_project %}
-        <canvas id="projectChart" aria-label="Cost by project bar chart"></canvas>
+        <div id="projectChart" role="img" aria-label="Cost by project bar chart"></div>
         {% elif total_sessions > 0 %}
         <p class="chart-empty">No cost data available.</p>
         {% elif ghost_payload and ghost_payload.by_project %}
-        <canvas id="projectChart" aria-label="Cost by project bar chart"></canvas>
+        <div id="projectChart" role="img" aria-label="Cost by project bar chart"></div>
         {% endif %}
       </div>
 
@@ -992,11 +1008,11 @@ STATS_TMPL = """\
           {% endif %}
         </h2>
         {% if total_sessions > 0 and payload.top_by_cost %}
-        <canvas id="costChart" aria-label="Top sessions by cost bar chart"></canvas>
+        <div id="costChart" role="img" aria-label="Top sessions by cost bar chart"></div>
         {% elif total_sessions > 0 %}
         <p class="chart-empty">No cost data available.</p>
         {% elif ghost_payload and ghost_payload.top_by_cost %}
-        <canvas id="costChart" aria-label="Top sessions by cost bar chart"></canvas>
+        <div id="costChart" role="img" aria-label="Top sessions by cost bar chart"></div>
         {% endif %}
       </div>
 
@@ -1117,7 +1133,6 @@ STATS_TMPL = """\
 </script>
 
 {% if total_sessions > 0 or ghost_payload %}
-<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/d3.min.js') }}"></script>
 <script>
 const PAYLOAD = {{ (payload if total_sessions > 0 else ghost_payload) | tojson }};
@@ -1141,94 +1156,150 @@ function readVars() {
 }
 readVars();
 
-Chart.defaults.color = _muted;
-Chart.defaults.borderColor = _gridColor;
-Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-Chart.defaults.font.size = 11;
-
-// Chart instances (module-level so the theme observer can update them)
-let projectChartInst, costChartInst;
-
-// ── Cost by project ───────────────────────────────────────────
-if (document.getElementById('projectChart')) {
-  projectChartInst = new Chart(document.getElementById('projectChart'), {
-    type: 'bar',
-    data: {
-      labels: PAYLOAD.by_project.map(p => p.label),
-      datasets: [{ data: PAYLOAD.by_project.map(p => p.cost_usd), backgroundColor: _accent2 + _fillAlpha, borderColor: _accent2, borderWidth: 1 }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: items => PAYLOAD.by_project[items[0].dataIndex].label,
-            label: item => {
-              const p = PAYLOAD.by_project[item.dataIndex];
-              return ['$' + item.raw.toFixed(4), p.count + ' session' + (p.count === 1 ? '' : 's')];
-            }
-          }
-        }
-      },
-      scales: {
-        x: { grid: { color: _gridColor }, beginAtZero: true, ticks: { callback: v => '$' + v.toFixed(2) } },
-        y: { grid: { display: false } }
-      }
-    }
-  });
+// Tooltip positioning: flips to the left of the cursor when near the right viewport edge
+function tipAt(tip, event) {
+  const w = tip.node().offsetWidth;
+  const left = event.clientX + 14 + w > window.innerWidth ? event.clientX - w - 14 : event.clientX + 14;
+  tip.style('left', left + 'px').style('top', (event.clientY - 36) + 'px');
 }
 
-// ── Top sessions by cost ──────────────────────────────────────
-if (document.getElementById('costChart')) {
+// Repaint handles (module-level so the theme observer can call them)
+let repaintProject, repaintCost, repaintCumulative;
+
+// ── Cost by project (D3) ─────────────────────────────────────
+(function () {
+  const el = document.getElementById('projectChart');
+  if (!el) return;
+  const data = PAYLOAD.by_project;
+  if (!data.length) return;
+  const tip = d3.select('.heat-tooltip');
+
+  function draw() {
+    d3.select(el).selectAll('*').remove();
+    const MG = { top: 6, right: 16, bottom: 28, left: 150 };
+    const totalW = Math.max(200, el.getBoundingClientRect().width);
+    const IW = totalW - MG.left - MG.right;
+    const PAD = 0.25, BAR = 18;
+    const IH = data.length * (BAR / (1 - PAD));
+    const totalH = IH + MG.top + MG.bottom;
+
+    const x = d3.scaleLinear().domain([0, d3.max(data, d => d.cost_usd) || 1]).range([0, IW]).nice();
+    const y = d3.scaleBand().domain(data.map(d => d.label)).range([0, IH]).padding(PAD);
+
+    const svg = d3.select(el).append('svg')
+      .attr('width', totalW).attr('height', totalH)
+      .style('display', 'block').style('max-width', '100%');
+    const g = svg.append('g').attr('transform', 'translate(' + MG.left + ',' + MG.top + ')');
+
+    g.selectAll('.pgrid').data(x.ticks(4)).join('line').attr('class', 'pgrid')
+      .attr('x1', d => x(d)).attr('x2', d => x(d)).attr('y1', 0).attr('y2', IH)
+      .attr('stroke', _gridColor);
+
+    g.append('g').attr('transform', 'translate(0,' + IH + ')')
+      .call(d3.axisBottom(x).ticks(4).tickFormat(v => '$' + v.toFixed(2)))
+      .call(ax => {
+        ax.select('.domain').remove();
+        ax.selectAll('.tick line').attr('stroke', _border);
+        ax.selectAll('.tick text').attr('fill', _muted).attr('font-size', 10);
+      });
+
+    g.append('g').call(d3.axisLeft(y).tickSize(0))
+      .call(ax => {
+        ax.select('.domain').remove();
+        ax.selectAll('.tick text').attr('fill', _muted).attr('font-size', 10).attr('dx', -4)
+          .text(d => d.length > 22 ? d.slice(0, 22) + '\u2026' : d);
+      });
+
+    g.selectAll('.pbar').data(data).join('rect').attr('class', 'pbar')
+      .attr('x', 0).attr('y', d => y(d.label))
+      .attr('width', d => x(d.cost_usd)).attr('height', y.bandwidth())
+      .attr('fill', _accent2 + _fillAlpha).attr('stroke', _accent2).attr('stroke-width', 1).attr('rx', 2)
+      .on('mouseover', function (event, d) {
+        tip.style('opacity', 1).html(d.label + '<br>$' + d.cost_usd.toFixed(4) + '<br>' + d.count + ' session' + (d.count === 1 ? '' : 's'));
+      })
+      .on('mousemove', function (event) { tipAt(tip, event); })
+      .on('mouseout', () => tip.style('opacity', 0));
+  }
+
+  draw();
+  repaintProject = draw;
+})();
+
+// ── Top sessions by cost (D3) ────────────────────────────────
+(function () {
+  const el = document.getElementById('costChart');
+  if (!el) return;
   let showAll = false;
-  function renderCost(all) {
-    const items = all ? PAYLOAD.top_by_cost : PAYLOAD.top_by_cost.slice(0, 10);
-    const labels = items.map(s => s.title.length > 40 ? s.title.slice(0, 40) + '\u2026' : s.title);
-    if (costChartInst) costChartInst.destroy();
-    costChartInst = new Chart(document.getElementById('costChart'), {
-      type: 'bar',
-      data: { labels, datasets: [{ data: items.map(s => s.cost_usd), backgroundColor: _accent + _fillAlpha, borderColor: _accent, borderWidth: 1 }] },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              title: ctxItems => items[ctxItems[0].dataIndex].title,
-              label: item => '$' + item.raw.toFixed(4)
-            }
-          }
-        },
-        scales: {
-          x: { grid: { color: _gridColor }, beginAtZero: true, ticks: { callback: v => '$' + v.toFixed(2) } },
-          y: { grid: { display: false } }
-        },
-        onClick: (event, elements) => {
-          if (elements.length > 0) {
-            window.location.href = '/session/' + items[elements[0].index].session_id;
-          }
-        },
-        onHover: (event, elements) => {
-          event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
-        }
-      }
-    });
+  const tip = d3.select('.heat-tooltip');
+
+  function draw() {
+    d3.select(el).selectAll('*').remove();
+    const items = showAll ? PAYLOAD.top_by_cost : PAYLOAD.top_by_cost.slice(0, 10);
+    if (!items.length) return;
+
+    const MG = { top: 6, right: 16, bottom: 28, left: 180 };
+    const totalW = Math.max(200, el.getBoundingClientRect().width);
+    const IW = totalW - MG.left - MG.right;
+    const PAD = 0.25, BAR = 18;
+    const IH = items.length * (BAR / (1 - PAD));
+    const totalH = IH + MG.top + MG.bottom;
+
+    const x = d3.scaleLinear().domain([0, d3.max(items, d => d.cost_usd) || 1]).range([0, IW]).nice();
+    const y = d3.scaleBand().domain(items.map(d => d.title)).range([0, IH]).padding(PAD);
+
+    const svg = d3.select(el).append('svg')
+      .attr('width', totalW).attr('height', totalH)
+      .style('display', 'block').style('max-width', '100%');
+    const g = svg.append('g').attr('transform', 'translate(' + MG.left + ',' + MG.top + ')');
+
+    g.selectAll('.cgrid').data(x.ticks(4)).join('line').attr('class', 'cgrid')
+      .attr('x1', d => x(d)).attr('x2', d => x(d)).attr('y1', 0).attr('y2', IH)
+      .attr('stroke', _gridColor);
+
+    g.append('g').attr('transform', 'translate(0,' + IH + ')')
+      .call(d3.axisBottom(x).ticks(4).tickFormat(v => '$' + v.toFixed(2)))
+      .call(ax => {
+        ax.select('.domain').remove();
+        ax.selectAll('.tick line').attr('stroke', _border);
+        ax.selectAll('.tick text').attr('fill', _muted).attr('font-size', 10);
+      });
+
+    g.append('g').call(d3.axisLeft(y).tickSize(0))
+      .call(ax => {
+        ax.select('.domain').remove();
+        ax.selectAll('.tick text').attr('fill', _muted).attr('font-size', 10).attr('dx', -4)
+          .text(d => d.length > 26 ? d.slice(0, 26) + '\u2026' : d);
+      });
+
+    g.selectAll('.cbar').data(items).join('rect').attr('class', 'cbar')
+      .attr('x', 0).attr('y', d => y(d.title))
+      .attr('width', d => x(d.cost_usd)).attr('height', y.bandwidth())
+      .attr('fill', _accent + _fillAlpha).attr('stroke', _accent).attr('stroke-width', 1).attr('rx', 2)
+      .style('cursor', 'pointer')
+      .on('mouseover', function (event, d) {
+        tip.style('opacity', 1).html(d.title + '<br>$' + d.cost_usd.toFixed(4));
+      })
+      .on('mousemove', function (event) { tipAt(tip, event); })
+      .on('mouseout', () => tip.style('opacity', 0))
+      .on('click', function (event, d) { window.location.href = '/session/' + d.session_id; });
   }
-  renderCost(false);
+
+  draw();
+  repaintCost = draw;
+
   const toggle = document.getElementById('costToggle');
-  if (PAYLOAD.top_by_cost.length <= 10) {
-    toggle.style.display = 'none';
-  } else {
-    toggle.addEventListener('click', () => {
-      showAll = !showAll;
-      toggle.textContent = showAll ? 'top 10' : 'show all';
-      renderCost(showAll);
-    });
+  if (toggle) {
+    if (PAYLOAD.top_by_cost.length <= 10) {
+      toggle.style.display = 'none';
+    } else {
+      toggle.addEventListener('click', () => {
+        showAll = !showAll;
+        toggle.textContent = showAll ? 'top 10' : 'show all';
+        draw();
+      });
+    }
   }
-}
+})();
 
 // ── Activity heatmap (D3) ─────────────────────────────────────
 let repaintHeatmap;
@@ -1335,8 +1406,7 @@ let repaintHeatmap;
          .html(DAYS[d.day] + ' ' + d.hour + 'h &nbsp;&middot;&nbsp; ' + val);
     })
     .on('mousemove', function (event) {
-      tip.style('left', (event.clientX + 14) + 'px')
-         .style('top',  (event.clientY - 36) + 'px');
+      tipAt(tip, event);
     })
     .on('mouseout', function () { tip.style('opacity', 0); });
 
@@ -1388,30 +1458,165 @@ let repaintHeatmap;
   };
 })();
 
-// ── Theme observer: update charts + heatmap on theme toggle ──
-new MutationObserver(() => {
-  readVars();
-  Chart.defaults.color = _muted;
-  Chart.defaults.borderColor = _gridColor;
+// ── Cumulative cost over time (D3) ────────────────────────────
+// Note: spec (cumulative-cost-chart.md) suggested Chart.js; using D3 instead
+// since it is already loaded for the heatmap — avoids a second render engine.
+(function () {
+  if (!document.getElementById('cumulativeCostChart')) return;
 
-  function retheme(chart, bgColor, borderColor) {
-    if (!chart) return;
-    chart.data.datasets.forEach(ds => {
-      ds.backgroundColor = bgColor;
-      ds.borderColor = borderColor;
-    });
-    if (chart.options.scales) {
-      Object.values(chart.options.scales).forEach(s => {
-        if (s.grid && s.grid.color !== undefined) s.grid.color = _gridColor;
-      });
+  // Sort sessions ascending by timestamp. sessions_raw is already filtered
+  // to the active date range by the stats route in app.py.
+  const sorted = PAYLOAD.sessions_raw
+    .filter(s => s.ts_ms)
+    .sort((a, b) => a.ts_ms - b.ts_ms);
+
+  if (!sorted.length) return;
+
+  // Bucket by day; switch to Monday-aligned weeks when span > 90 days
+  const spanDays = (sorted[sorted.length - 1].ts_ms - sorted[0].ts_ms) / 86400000;
+  const useWeeks = spanDays > 90;
+
+  function bucketTs(ts) {
+    const d = new Date(ts);
+    // Use local date components so bucket boundaries match the user's timezone,
+    // consistent with the heatmap and padded() in the filter panel.
+    const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (useWeeks) {
+      // Align to Monday: getDay() returns 0=Sun … 6=Sat; (dow+6)%7 gives 0=Mon
+      local.setDate(local.getDate() - (local.getDay() + 6) % 7);
     }
-    chart.update('none');
+    return local.getTime();
   }
 
-  retheme(projectChartInst, _accent2 + _fillAlpha, _accent2);
-  retheme(costChartInst,    _accent  + _fillAlpha, _accent);
+  // Accumulate cost per bucket
+  const bucketMap = {};
+  sorted.forEach(s => {
+    const k = bucketTs(s.ts_ms);
+    bucketMap[k] = (bucketMap[k] || 0) + (s.cost_usd || 0);
+  });
 
+  // Build cumulative series — one point per bucket that had sessions
+  let cum = 0;
+  const points = Object.keys(bucketMap).map(Number).sort((a, b) => a - b).map(k => {
+    cum += bucketMap[k];
+    return { date: new Date(k), cumCost: cum, periodCost: bucketMap[k] };
+  });
+
+  const timeFmt = d3.timeFormat(useWeeks ? 'Week of %b %d, %Y' : '%b %d, %Y');
+  // Reuse the heatmap tooltip div (only one tooltip is ever visible at a time)
+  const tip = d3.select('.heat-tooltip');
+
+  // draw() is called on init and again on every theme change (via repaintCumulative)
+  function draw() {
+    const el = document.getElementById('cumulativeCostChart');
+    d3.select(el).selectAll('*').remove();   // clear before redraw
+
+    const MG = { top: 16, right: 20, bottom: 36, left: 58 };
+    const totalW = Math.max(300, el.getBoundingClientRect().width);
+    const totalH = 220;
+    const IW = totalW - MG.left - MG.right;
+    const IH = totalH - MG.top - MG.bottom;
+
+    const x = d3.scaleTime()
+      .domain(d3.extent(points, d => d.date))
+      .range([0, IW]).nice();
+
+    const y = d3.scaleLinear()
+      .domain([0, (d3.max(points, d => d.cumCost) || 1) * 1.1])
+      .range([IH, 0]).nice();
+
+    const lineFn = d3.line()
+      .x(d => x(d.date)).y(d => y(d.cumCost))
+      .curve(d3.curveMonotoneX);
+
+    const areaFn = d3.area()
+      .x(d => x(d.date)).y0(IH).y1(d => y(d.cumCost))
+      .curve(d3.curveMonotoneX);
+
+    const svg = d3.select(el).append('svg')
+      .attr('width', totalW).attr('height', totalH)
+      .style('display', 'block').style('max-width', '100%');
+
+    // Gradient fill under the line: accent at top fading to transparent
+    const defs = svg.append('defs');
+    const grad = defs.append('linearGradient')
+      .attr('id', 'cumGrad').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 1);
+    grad.append('stop').attr('offset', '0%').attr('stop-color', _accent).attr('stop-opacity', 0.28);
+    grad.append('stop').attr('offset', '100%').attr('stop-color', _accent).attr('stop-opacity', 0.02);
+
+    const g = svg.append('g').attr('transform', 'translate(' + MG.left + ',' + MG.top + ')');
+
+    // Horizontal grid lines only (no vertical grid — matches spec)
+    g.selectAll('.cgrid')
+      .data(y.ticks(5)).join('line').attr('class', 'cgrid')
+      .attr('x1', 0).attr('x2', IW)
+      .attr('y1', d => y(d)).attr('y2', d => y(d))
+      .attr('stroke', _gridColor).attr('stroke-dasharray', '3,5');
+
+    // X axis: show every Nth tick so labels don't crowd
+    g.append('g')
+      .attr('transform', 'translate(0,' + IH + ')')
+      .call(d3.axisBottom(x)
+        .ticks(Math.min(points.length, Math.floor(IW / 80)))
+        .tickFormat(d3.timeFormat('%b %d')))
+      .call(ax => {
+        ax.select('.domain').attr('stroke', _border);
+        ax.selectAll('.tick line').attr('stroke', _border);
+        ax.selectAll('.tick text').attr('fill', _muted).attr('font-size', 10);
+      });
+
+    // Y axis: dollar labels, no domain line or tick marks
+    g.append('g')
+      .call(d3.axisLeft(y)
+        .ticks(5)
+        .tickFormat(v => '$' + (v >= 10 ? v.toFixed(0) : v.toFixed(2))))
+      .call(ax => {
+        ax.select('.domain').remove();
+        ax.selectAll('.tick line').remove();
+        ax.selectAll('.tick text').attr('fill', _muted).attr('font-size', 10);
+      });
+
+    // Area fill (gradient defined above)
+    g.append('path').datum(points).attr('fill', 'url(#cumGrad)').attr('d', areaFn);
+
+    // Line
+    g.append('path').datum(points)
+      .attr('fill', 'none')
+      .attr('stroke', _accent).attr('stroke-width', 2.5)
+      .attr('d', lineFn);
+
+    // Dots — one per bucket that had activity (spec: no dots for inactive days)
+    g.selectAll('.cum-dot').data(points).join('circle')
+      .attr('class', 'cum-dot')
+      .attr('cx', d => x(d.date)).attr('cy', d => y(d.cumCost))
+      .attr('r', 3.5)
+      .attr('fill', _accent)
+      // stroke uses --bg directly so dots are legible against the gradient fill
+      .attr('stroke', cssVar('--bg')).attr('stroke-width', 1.5)
+      .on('mouseover', function (event, d) {
+        tip.style('opacity', 1).html(
+          timeFmt(d.date) +
+          '<br>Cumulative: $' + d.cumCost.toFixed(4) +
+          '<br>' + (useWeeks ? 'Week' : 'Day') + ': $' + d.periodCost.toFixed(4)
+        );
+      })
+      .on('mousemove', function (event) {
+        tipAt(tip, event);
+      })
+      .on('mouseout', () => tip.style('opacity', 0));
+  }
+
+  draw();
+  repaintCumulative = draw;
+})();
+
+// ── Theme observer: redraw all D3 charts on theme toggle ─────
+new MutationObserver(() => {
+  readVars();
+  if (repaintProject) repaintProject();
+  if (repaintCost) repaintCost();
   if (repaintHeatmap) repaintHeatmap();
+  if (repaintCumulative) repaintCumulative();
 }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>
 {% endif %}
