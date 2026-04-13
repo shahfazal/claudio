@@ -1,10 +1,12 @@
 """Flask application — routes and entry point."""
 
+import json
 import logging
 import os
 import re
+from datetime import datetime, timezone
 
-from flask import Flask, render_template
+from flask import Flask, Response, render_template
 from jinja2 import ChoiceLoader, DictLoader
 
 from claudio.health import check_environment
@@ -48,6 +50,47 @@ app.jinja_env.globals.update(
     session_title=session_title, fmt_ts=fmt_ts, fmt_cost=fmt_cost,
     strip_home=strip_home, brain_icon=brain_icon, archive_icon=archive_icon,
 )
+
+
+# ---------------------------------------------------------------------------
+# Export helpers
+# ---------------------------------------------------------------------------
+
+
+def _export_session(s: dict) -> dict:
+    """Flatten a parsed session dict into the portable export schema."""
+    slug = s.get("project_slug", "")
+    cwd = s.get("cwd") or ("/" + slug.lstrip("-").replace("-", "/"))
+    return {
+        "uuid": s.get("session_id"),
+        "title": session_title(s),
+        "created_at": s.get("started_at"),
+        "updated_at": s.get("ended_at"),
+        "cost": {
+            "total": s.get("cost_usd"),
+            "cost_unknown": s.get("cost_unknown", False),
+        },
+        "messages": s.get("message_count", 0),
+        "project": {
+            "path": strip_home(cwd),
+            "slug": slug,
+        },
+        "compactions": s.get("compact_count", 0),
+        "model": s.get("model"),
+    }
+
+
+def _export_pricing() -> dict:
+    """Return current pricing config for inclusion in export."""
+    from claudio.parsers import PRICING
+
+    return {
+        "source": "built-in (parsers.py)",
+        "models": {
+            model: {"input": rates[0], "cache_write": rates[1], "cache_read": rates[2], "output": rates[3]}
+            for model, rates in PRICING.items()
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +180,30 @@ def project_memory(project_slug: str):
 def health_status():
     result = check_environment()
     return render_template("health.html", health=result)
+
+
+@app.route("/export/sessions.json")
+def export_sessions():
+    sessions = load_all_sessions()
+    export_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    filename_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+    payload = {
+        "claudio_version": "0.4.0",
+        "export_date": export_date,
+        "claude_directory": str(PROJECTS_DIR.parent),
+        "total_sessions": len(sessions),
+        "parsed_sessions": len(sessions),
+        "failed_sessions": [],
+        "sessions": [_export_session(s) for s in sessions],
+        "pricing_config": _export_pricing(),
+    }
+
+    return Response(
+        json.dumps(payload, indent=2, default=str),
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="claudio-export-{filename_date}.json"'},
+    )
 
 
 # ---------------------------------------------------------------------------

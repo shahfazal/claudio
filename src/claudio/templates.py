@@ -360,6 +360,7 @@ BASE = """<!doctype html>
     <a class="nav-brand" href="/">claudio<span>.app</span></a>
     {% block nav_extra %}{% endblock %}
     <div class="nav-spacer"></div>
+    <a class="theme-btn" href="/export/sessions.json" download title="Export all sessions as JSON">↓ export</a>
     <button class="theme-btn" id="layout-btn" title="Toggle layout" onclick="cycleLayout()">
       <span id="layout-icon">≡</span>
       <span id="layout-label">rows</span>
