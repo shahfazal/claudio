@@ -7,6 +7,7 @@ import re
 from flask import Flask, render_template
 from jinja2 import ChoiceLoader, DictLoader
 
+from claudio.health import check_environment
 from claudio.parsers import (
     PROJECTS_DIR,
     fmt_cost,
@@ -20,16 +21,29 @@ from claudio.parsers import (
     session_title,
     strip_home,
 )
-from claudio.templates import BASE, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, archive_icon, brain_icon
+from claudio.templates import BASE, HEALTH_TMPL, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, archive_icon, brain_icon
 
 app = Flask(__name__)
 
 # Register inline templates with a DictLoader so {% extends %} works
 _dict_loader = DictLoader(
-    {"base.html": BASE, "index.html": INDEX_TMPL, "session.html": SESSION_TMPL, "memory.html": MEMORY_TMPL}
+    {
+        "base.html": BASE,
+        "index.html": INDEX_TMPL,
+        "session.html": SESSION_TMPL,
+        "memory.html": MEMORY_TMPL,
+        "health.html": HEALTH_TMPL,
+    }
 )
 _loaders = [ldr for ldr in [_dict_loader, app.jinja_env.loader] if ldr is not None]
 app.jinja_env.loader = ChoiceLoader(_loaders)
+
+
+@app.context_processor
+def inject_health():
+    return {"health": check_environment()}
+
+
 app.jinja_env.globals.update(
     session_title=session_title, fmt_ts=fmt_ts, fmt_cost=fmt_cost,
     strip_home=strip_home, brain_icon=brain_icon, archive_icon=archive_icon,
@@ -119,13 +133,19 @@ def project_memory(project_slug: str):
     )
 
 
+@app.route("/health")
+def health_status():
+    result = check_environment()
+    return render_template("health.html", health=result)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 
 def main():
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5001))
     host = os.environ.get("HOST", "127.0.0.1")
     debug = os.environ.get("DEBUG", "").lower() in ("1", "true")
     if not debug:

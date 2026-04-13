@@ -320,6 +320,38 @@ BASE = """<!doctype html>
 
   .hidden { display: none !important; }
   @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .side-panel { border-top: 1px solid var(--border); } }
+
+  /* ── Health banner ──────────────────────────────────────────── */
+  .health-banner { padding: 10px 24px; font-size: 13px; }
+  .health-banner-warning { background: #78350f22; border-bottom: 1px solid #92400e44; color: #92400e; }
+  .health-banner-error   { background: #7f1d1d22; border-bottom: 1px solid #991b1b44; color: #991b1b; }
+  :root[data-theme="dark"] .health-banner-warning { background: #78350f33; border-color: #92400e66; color: #fbbf24; }
+  :root[data-theme="dark"] .health-banner-error   { background: #7f1d1d33; border-color: #991b1b66; color: #f87171; }
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme="system"] .health-banner-warning { background: #78350f33; border-color: #92400e66; color: #fbbf24; }
+    :root[data-theme="system"] .health-banner-error   { background: #7f1d1d33; border-color: #991b1b66; color: #f87171; }
+  }
+  .health-banner-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .health-banner-icon { flex-shrink: 0; font-size: 15px; }
+  .health-banner-messages { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .health-banner-link { font-size: 12px; font-weight: 600; white-space: nowrap; color: inherit; border: 1px solid currentColor; border-radius: 4px; padding: 2px 8px; opacity: 0.8; }
+  .health-banner-link:hover { opacity: 1; text-decoration: none; }
+  .health-banner-dismiss { background: none; border: none; cursor: pointer; color: inherit; font-size: 14px; opacity: 0.6; padding: 0 4px; }
+  .health-banner-dismiss:hover { opacity: 1; }
+
+  /* ── Health page ────────────────────────────────────────────── */
+  .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; }
+  .health-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .health-status-ok      { color: var(--green); font-size: 16px; }
+  .health-status-warning { color: #f59e0b; font-size: 16px; }
+  .health-status-error   { color: #ef4444; font-size: 16px; }
+  .health-check-label { font-size: 13px; font-weight: 600; }
+  .health-check-msg { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .health-check-detail { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: monospace; }
+  .health-overall { display: inline-block; padding: 3px 10px; border-radius: 5px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 20px; }
+  .health-overall-ok      { background: rgba(74,222,128,0.15); color: var(--green); }
+  .health-overall-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .health-overall-error   { background: rgba(239,68,68,0.15);  color: #ef4444; }
 </style>
 </head>
 <body>
@@ -341,6 +373,18 @@ BASE = """<!doctype html>
     </a>
   </div>
 </nav>
+{% if health and health.status in ('warning', 'error') %}
+<div class="health-banner health-banner-{{ health.status }}" role="alert" aria-live="polite" id="health-banner">
+  <div class="health-banner-inner">
+    <span class="health-banner-icon">{% if health.status == 'error' %}❌{% else %}⚠️{% endif %}</span>
+    <div class="health-banner-messages">
+      {% for key, check in health.checks.items() %}{% if not check.ok %}<div>{{ check.message }}</div>{% endif %}{% endfor %}
+    </div>
+    <a class="health-banner-link" href="/health">Details</a>
+    <button class="health-banner-dismiss" onclick="document.getElementById('health-banner').remove()" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+{% endif %}
 <main>{% block body %}{% endblock %}</main>
 
 <script>
@@ -635,6 +679,64 @@ MEMORY_TMPL = """\
   {% if not memory.files %}
   <p style="color:var(--muted);font-size:13px">No memory files found for this project.</p>
   {% endif %}
+</div>
+{% endblock %}
+"""
+
+HEALTH_TMPL = """\
+{% extends "base.html" %}
+{% block title %}Health — Claudio{% endblock %}
+{% block nav_extra %}
+<a href="{{ url_for('index') }}" style="font-size:13px;color:var(--muted)">← all sessions</a>
+{% endblock %}
+
+{% block body %}
+<div class="container" style="max-width:860px;padding-top:24px">
+  <h1 style="font-size:20px;font-weight:700;margin-bottom:8px">Claudio Health Status</h1>
+  <span class="health-overall health-overall-{{ health.status }}">{{ health.status.upper() }}</span>
+
+  {% set check = health.checks.claude_dir %}
+  <div class="health-card">
+    <div class="health-card-header">
+      <span class="health-status-{{ 'ok' if check.ok else 'error' }}">{{ '✓' if check.ok else '✗' }}</span>
+      <span class="health-check-label">Claude Directory</span>
+    </div>
+    <div class="health-check-msg">{{ check.message }}</div>
+    {% if check.missing %}
+    <div class="health-check-detail">Missing: {{ check.missing | join(', ') }}</div>
+    {% endif %}
+  </div>
+
+  {% set check = health.checks.schema %}
+  <div class="health-card">
+    <div class="health-card-header">
+      <span class="health-status-{{ 'ok' if check.ok else 'error' }}">{{ '✓' if check.ok else '✗' }}</span>
+      <span class="health-check-label">Session Schema</span>
+    </div>
+    <div class="health-check-msg">{{ check.message }}</div>
+    {% if check.total_count %}
+    <div class="health-check-detail">Sessions found: {{ check.total_count }}</div>
+    {% endif %}
+  </div>
+
+  {% set check = health.checks.pricing %}
+  <div class="health-card">
+    <div class="health-card-header">
+      <span class="health-status-{{ 'ok' if check.ok else 'warning' }}">{{ '✓' if check.ok else '⚠' }}</span>
+      <span class="health-check-label">Pricing Configuration</span>
+    </div>
+    <div class="health-check-msg">{{ check.message }}</div>
+    {% if check.last_updated %}
+    <div class="health-check-detail">Last updated: {{ check.last_updated }}{% if check.days_old is not none %} ({{ check.days_old }} days ago){% endif %}</div>
+    {% endif %}
+  </div>
+
+  <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+    <a href="https://github.com/shahfazal/claudio/issues" target="_blank" rel="noopener noreferrer"
+       style="font-size:12px;color:var(--accent2)">Report compatibility issue →</a>
+    <a href="https://www.anthropic.com/pricing" target="_blank" rel="noopener noreferrer"
+       style="font-size:12px;color:var(--accent2)">Check Anthropic pricing →</a>
+  </div>
 </div>
 {% endblock %}
 """
