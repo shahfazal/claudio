@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,26 +19,66 @@ _STRIP_TAG_RE = re.compile(r"<([a-z][a-z_-]*)>.*?</\1>", re.DOTALL | re.IGNORECA
 _parse_cache: dict = {}
 
 # ---------------------------------------------------------------------------
-# MODEL PRICING TABLE — update when Anthropic changes rates
+# MODEL PRICING — loaded from ~/.claudio/pricing.json (user-editable).
+# Falls back to src/claudio/pricing.default.json bundled in the repo.
+# On first run the default is copied to ~/.claudio/pricing.json.
 # Keys are exact model IDs as they appear in session JSONL.
 # Rates are per million tokens: (input, cache_write, cache_read, output)
-# Source: https://www.anthropic.com/pricing
 # ---------------------------------------------------------------------------
-PRICING: dict[str, tuple[float, float, float, float]] = {
-    # Claude 4 family
-    "claude-opus-4-5": (15.00, 18.75, 1.50, 75.00),
-    "claude-sonnet-4-6": (3.00, 3.75, 0.30, 15.00),
-    # Claude 3.x family (dated model IDs used by Claude Code)
-    "claude-sonnet-4-5-20250929": (3.00, 3.75, 0.30, 15.00),
-    "claude-haiku-4-5-20251001": (0.80, 1.00, 0.08, 4.00),
-    "claude-opus-3-7-20250219": (15.00, 18.75, 1.50, 75.00),
-    "claude-sonnet-3-7-20250219": (3.00, 3.75, 0.30, 15.00),
-    "claude-sonnet-3-5-20241022": (3.00, 3.75, 0.30, 15.00),
-    "claude-haiku-3-5-20241022": (0.80, 1.00, 0.08, 4.00),
-    "claude-opus-3-20240229": (15.00, 18.75, 1.50, 75.00),
-    "claude-sonnet-3-20240229": (3.00, 3.75, 0.30, 15.00),
-    "claude-haiku-3-20240307": (0.25, 0.30, 0.03, 1.25),
-}
+
+_DEFAULT_PRICING_FILE = Path(__file__).parent / "pricing.default.json"
+_USER_PRICING_FILE = Path.home() / ".claudio" / "pricing.json"
+
+
+def load_pricing_config(
+    user_path: Path | None = None,
+    default_path: Path | None = None,
+) -> dict:
+    """Load pricing config from user path, copying the default on first run."""
+    if user_path is None:
+        user_path = _USER_PRICING_FILE
+    if default_path is None:
+        default_path = _DEFAULT_PRICING_FILE
+
+    if user_path.exists():
+        try:
+            return json.loads(user_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logging.warning("Could not read %s, falling back to default: %s", user_path, exc)
+
+    # First run or corrupt user file — copy default to user location
+    try:
+        user_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(default_path, user_path)
+    except OSError as exc:
+        logging.warning("Could not write %s: %s", user_path, exc)
+
+    return json.loads(default_path.read_text(encoding="utf-8"))
+
+
+def _build_pricing_table(config: dict) -> dict[str, tuple[float, float, float, float]]:
+    """Convert pricing config dict to the internal (inp, cw, cr, out) tuple format."""
+    table: dict[str, tuple[float, float, float, float]] = {}
+    for model, data in config.get("models", {}).items():
+        try:
+            inp = float(data["input"])
+            out = float(data["output"])
+            table[model] = (
+                inp,
+                float(data.get("cache_write", inp * 1.25)),
+                float(data.get("cache_read", inp * 0.1)),
+                out,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            logging.warning("Skipping malformed pricing entry for %r: %s", model, exc)
+    return table
+
+
+try:
+    PRICING: dict[str, tuple[float, float, float, float]] = _build_pricing_table(load_pricing_config())
+except Exception as exc:
+    logging.warning("Failed to load pricing config, using empty table: %s", exc)
+    PRICING = {}
 
 # Models that generate no billable API cost (internal/tool-use messages)
 _NO_COST_MODELS = {"<synthetic>"}
