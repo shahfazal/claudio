@@ -236,7 +236,7 @@ def test_environment_warning_on_stale_pricing(tmp_path):
 
 
 def test_health_route_renders(client):
-    with patch("claudio.health.check_environment", return_value={
+    with patch("claudio.app.check_environment", return_value={
         "status": "ok",
         "checks": {
             "claude_dir": {"ok": True, "message": "Found ~/.claude (5 projects)", "missing": []},
