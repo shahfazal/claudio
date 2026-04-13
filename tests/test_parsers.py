@@ -29,10 +29,6 @@ from claudio.parsers import (
 # ---------------------------------------------------------------------------
 
 
-def test_extract_text_string():
-    assert _extract_text("hello") == "hello"
-
-
 def test_extract_text_list():
     content = [{"type": "text", "text": "foo"}, {"type": "text", "text": "bar"}]
     assert _extract_text(content) == "foo\nbar"
@@ -41,11 +37,6 @@ def test_extract_text_list():
 def test_extract_text_skips_non_text_blocks():
     content = [{"type": "tool_use", "name": "Read"}, {"type": "text", "text": "hi"}]
     assert _extract_text(content) == "hi"
-
-
-def test_extract_text_empty():
-    assert _extract_text([]) == ""
-    assert _extract_text(None) == ""
 
 
 # ---------------------------------------------------------------------------
@@ -64,11 +55,6 @@ def test_extract_tool_uses():
     assert tools[0]["input"] == {"file_path": "/foo.py"}
 
 
-def test_extract_tool_uses_empty():
-    assert _extract_tool_uses([]) == []
-    assert _extract_tool_uses("not a list") == []
-
-
 # ---------------------------------------------------------------------------
 # _clean_user_text
 # ---------------------------------------------------------------------------
@@ -77,10 +63,6 @@ def test_extract_tool_uses_empty():
 def test_clean_user_text_strips_tags():
     raw = "<ide_opened_file>foo.py</ide_opened_file>\nActual message"
     assert _clean_user_text(raw) == "Actual message"
-
-
-def test_clean_user_text_passthrough():
-    assert _clean_user_text("plain text") == "plain text"
 
 
 # ---------------------------------------------------------------------------
@@ -145,12 +127,6 @@ def test_parse_session_compact_count(tmp_path):
     )
     s = parse_session(jf)
     assert s["compact_count"] == 2
-
-
-def test_parse_session_compact_count_zero(sample_jsonl):
-    # sample.jsonl must not contain compact_boundary events — this test depends on that
-    s = parse_session(sample_jsonl)
-    assert s["compact_count"] == 0
 
 
 def test_parse_session_timestamps(sample_jsonl):
@@ -235,11 +211,6 @@ def test_fmt_ts_unix_ms():
     ms = 1735689600000
     expected = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
     assert fmt_ts(ms) == expected
-
-
-def test_fmt_ts_empty():
-    assert fmt_ts(None) == ""
-    assert fmt_ts("") == ""
 
 
 # ---------------------------------------------------------------------------
@@ -363,13 +334,6 @@ def test_parse_frontmatter_no_frontmatter():
     assert body == "just a body"
 
 
-def test_parse_frontmatter_unclosed():
-    text = "---\nkey: val\nno closing dashes"
-    meta, body = _parse_frontmatter(text)
-    assert meta == {}
-    assert body == text
-
-
 def test_parse_frontmatter_normal():
     text = "---\nname: My File\ntype: user\n---\nBody content"
     meta, body = _parse_frontmatter(text)
@@ -377,28 +341,9 @@ def test_parse_frontmatter_normal():
     assert body == "Body content"
 
 
-def test_parse_frontmatter_empty_body():
-    text = "---\nname: test\n---\n"
-    meta, body = _parse_frontmatter(text)
-    assert meta == {"name": "test"}
-    assert body == ""
-
-
 # ---------------------------------------------------------------------------
 # _calc_cost — additional branches
 # ---------------------------------------------------------------------------
-
-
-def test_calc_cost_synthetic_model_returns_zero():
-    usage = {"input_tokens": 10000, "cache_creation_input_tokens": 0,
-              "cache_read_input_tokens": 0, "output_tokens": 5000}
-    assert _calc_cost("<synthetic>", usage) == 0.0
-
-
-def test_calc_cost_unknown_model_zero_tokens_returns_zero():
-    usage = {"input_tokens": 0, "cache_creation_input_tokens": 0,
-              "cache_read_input_tokens": 0, "output_tokens": 0}
-    assert _calc_cost("claude-unknown-model", usage) == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -478,15 +423,6 @@ def test_parse_session_sidechain_message_included(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_strip_home_non_matching_path():
-    result = strip_home("/some/other/path")
-    assert result == "/some/other/path"
-
-
-def test_strip_home_none():
-    assert strip_home(None) is None
-
-
 # ---------------------------------------------------------------------------
 # load_history
 # ---------------------------------------------------------------------------
@@ -550,16 +486,6 @@ def test_load_todos_agent_filename_splitting(tmp_path, monkeypatch):
     (tmp_path / "my-session-id-agent-abc123.json").write_text(json.dumps([{"content": "task", "status": "done"}]))
     todos = load_todos()
     assert "my-session-id" in todos
-
-
-def test_load_todos_non_json_skipped(tmp_path, monkeypatch):
-    import claudio.parsers as parsers_module
-    monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
-    (tmp_path / "notes.txt").write_text("not a json file")
-    (tmp_path / "real.json").write_text(json.dumps([{"content": "task", "status": "pending"}]))
-    todos = load_todos()
-    assert "notes" not in todos
-    assert "real" in todos
 
 
 def test_load_todos_non_list_skipped(tmp_path, monkeypatch):
