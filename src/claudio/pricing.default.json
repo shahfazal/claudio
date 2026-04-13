@@ -1,0 +1,84 @@
+{
+  "last_updated": "2026-04-12",
+  "source": "https://www.anthropic.com/pricing",
+  "note": "Prices in USD per million tokens. Fields: input, cache_write, cache_read, output.",
+  "models": {
+    "claude-opus-4-5": {
+      "input": 15.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5,
+      "output": 75.0,
+      "display_name": "Claude Opus 4.5"
+    },
+    "claude-sonnet-4-6": {
+      "input": 3.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3,
+      "output": 15.0,
+      "display_name": "Claude Sonnet 4.6"
+    },
+    "claude-sonnet-4-5-20250929": {
+      "input": 3.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3,
+      "output": 15.0,
+      "display_name": "Claude Sonnet 4.5"
+    },
+    "claude-haiku-4-5-20251001": {
+      "input": 0.8,
+      "cache_write": 1.0,
+      "cache_read": 0.08,
+      "output": 4.0,
+      "display_name": "Claude Haiku 4.5"
+    },
+    "claude-opus-3-7-20250219": {
+      "input": 15.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5,
+      "output": 75.0,
+      "display_name": "Claude Opus 3.7"
+    },
+    "claude-sonnet-3-7-20250219": {
+      "input": 3.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3,
+      "output": 15.0,
+      "display_name": "Claude Sonnet 3.7"
+    },
+    "claude-sonnet-3-5-20241022": {
+      "input": 3.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3,
+      "output": 15.0,
+      "display_name": "Claude Sonnet 3.5"
+    },
+    "claude-haiku-3-5-20241022": {
+      "input": 0.8,
+      "cache_write": 1.0,
+      "cache_read": 0.08,
+      "output": 4.0,
+      "display_name": "Claude Haiku 3.5"
+    },
+    "claude-opus-3-20240229": {
+      "input": 15.0,
+      "cache_write": 18.75,
+      "cache_read": 1.5,
+      "output": 75.0,
+      "display_name": "Claude Opus 3"
+    },
+    "claude-sonnet-3-20240229": {
+      "input": 3.0,
+      "cache_write": 3.75,
+      "cache_read": 0.3,
+      "output": 15.0,
+      "display_name": "Claude Sonnet 3"
+    },
+    "claude-haiku-3-20240307": {
+      "input": 0.25,
+      "cache_write": 0.3,
+      "cache_read": 0.03,
+      "output": 1.25,
+      "display_name": "Claude Haiku 3"
+    }
+  }
+}

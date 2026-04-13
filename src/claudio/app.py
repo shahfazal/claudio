@@ -1,12 +1,15 @@
 """Flask application — routes and entry point."""
 
+import json
 import logging
 import os
 import re
+from datetime import datetime, timezone
 
-from flask import Flask, render_template
+from flask import Flask, Response, render_template
 from jinja2 import ChoiceLoader, DictLoader
 
+from claudio.health import check_environment
 from claudio.parsers import (
     PROJECTS_DIR,
     fmt_cost,
@@ -20,20 +23,74 @@ from claudio.parsers import (
     session_title,
     strip_home,
 )
-from claudio.templates import BASE, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, archive_icon, brain_icon
+from claudio.templates import BASE, HEALTH_TMPL, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, archive_icon, brain_icon
 
 app = Flask(__name__)
 
 # Register inline templates with a DictLoader so {% extends %} works
 _dict_loader = DictLoader(
-    {"base.html": BASE, "index.html": INDEX_TMPL, "session.html": SESSION_TMPL, "memory.html": MEMORY_TMPL}
+    {
+        "base.html": BASE,
+        "index.html": INDEX_TMPL,
+        "session.html": SESSION_TMPL,
+        "memory.html": MEMORY_TMPL,
+        "health.html": HEALTH_TMPL,
+    }
 )
 _loaders = [ldr for ldr in [_dict_loader, app.jinja_env.loader] if ldr is not None]
 app.jinja_env.loader = ChoiceLoader(_loaders)
+
+
+@app.context_processor
+def inject_health():
+    return {"health": check_environment()}
+
+
 app.jinja_env.globals.update(
     session_title=session_title, fmt_ts=fmt_ts, fmt_cost=fmt_cost,
     strip_home=strip_home, brain_icon=brain_icon, archive_icon=archive_icon,
 )
+
+
+# ---------------------------------------------------------------------------
+# Export helpers
+# ---------------------------------------------------------------------------
+
+
+def _export_session(s: dict) -> dict:
+    """Flatten a parsed session dict into the portable export schema."""
+    slug = s.get("project_slug", "")
+    cwd = s.get("cwd") or ("/" + slug.lstrip("-").replace("-", "/"))
+    return {
+        "uuid": s.get("session_id"),
+        "title": session_title(s),
+        "created_at": s.get("started_at"),
+        "updated_at": s.get("ended_at"),
+        "cost": {
+            "total": s.get("cost_usd"),
+            "cost_unknown": s.get("cost_unknown", False),
+        },
+        "messages": s.get("message_count", 0),
+        "project": {
+            "path": strip_home(cwd),
+            "slug": slug,
+        },
+        "compactions": s.get("compact_count", 0),
+        "model": s.get("model"),
+    }
+
+
+def _export_pricing() -> dict:
+    """Return current pricing config for inclusion in export."""
+    from claudio.parsers import PRICING
+
+    return {
+        "source": "built-in (parsers.py)",
+        "models": {
+            model: {"input": rates[0], "cache_write": rates[1], "cache_read": rates[2], "output": rates[3]}
+            for model, rates in PRICING.items()
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -119,13 +176,43 @@ def project_memory(project_slug: str):
     )
 
 
+@app.route("/health")
+def health_status():
+    result = check_environment()
+    return render_template("health.html", health=result)
+
+
+@app.route("/export/sessions.json")
+def export_sessions():
+    sessions = load_all_sessions()
+    export_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    filename_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+    payload = {
+        "claudio_version": "0.4.0",
+        "export_date": export_date,
+        "claude_directory": str(PROJECTS_DIR.parent),
+        "total_sessions": len(sessions),
+        "parsed_sessions": len(sessions),
+        "failed_sessions": [],
+        "sessions": [_export_session(s) for s in sessions],
+        "pricing_config": _export_pricing(),
+    }
+
+    return Response(
+        json.dumps(payload, indent=2, default=str),
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="claudio-export-{filename_date}.json"'},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 
 def main():
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5001))
     host = os.environ.get("HOST", "127.0.0.1")
     debug = os.environ.get("DEBUG", "").lower() in ("1", "true")
     if not debug:

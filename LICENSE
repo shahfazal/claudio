@@ -19,3 +19,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+ADDITIONAL DISCLAIMER:
+This software reads undocumented local files created by Claude Code.
+It is provided AS-IS with no guarantees of forward compatibility.
+Anthropic may change Claude Code's file format at any time, which could
+break this software without notice. Users are advised to export their data
+regularly using the built-in export feature.
