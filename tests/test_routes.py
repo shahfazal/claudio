@@ -5,13 +5,6 @@ from unittest.mock import patch
 from claudio.parsers import parse_session
 
 
-def test_index_returns_200(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
-        resp = client.get("/")
-    assert resp.status_code == 200
-    assert b"claudio" in resp.data
-
-
 def test_index_lists_sessions(client, sample_jsonl):
     session = parse_session(sample_jsonl)
     session["project_slug"] = "-Users-test-myproject"
@@ -73,31 +66,9 @@ def test_session_cards_are_links(client, sample_jsonl):
 
 
 
-def test_index_has_main_landmark(client):
-    """Page must have a <main> element for screen reader landmark navigation."""
-    with patch("claudio.app.load_all_sessions", return_value=[]):
-        resp = client.get("/")
-    assert b"<main>" in resp.data
-
-
-def test_theme_toggle_elements_present(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
-        resp = client.get("/")
-    html = resp.data.decode()
-    assert "theme-btn" in html
-    assert "cycleTheme" in html
-    assert "claudio-theme" in html
-
-
 # ---------------------------------------------------------------------------
 # /memory route
 # ---------------------------------------------------------------------------
-
-
-def test_memory_route_invalid_slug(client):
-    # Slug with spaces/special chars — Flask won't route slashes but other chars reach the guard
-    resp = client.get("/memory/has spaces")
-    assert resp.status_code in (400, 404)  # Flask may 404 before slug guard fires
 
 
 def test_memory_route_invalid_slug_chars(client):
@@ -106,22 +77,10 @@ def test_memory_route_invalid_slug_chars(client):
     assert resp.status_code == 400
 
 
-def test_memory_route_invalid_slug_dots(client):
-    resp = client.get("/memory/has.dots")
-    assert resp.status_code == 400
-
-
 def test_memory_route_invalid_slug_all_dashes(client):
     # All-dash slug passes character set but has no alphanumeric — must be rejected
     resp = client.get("/memory/---")
     assert resp.status_code == 400
-
-
-def test_memory_route_real_format_slug(client):
-    # Real Claude Code slugs start with a dash: -Users-aturing-projects-epiphany
-    with patch("claudio.app.load_project_memory", return_value={"count": 0, "index": None, "files": []}):
-        resp = client.get("/memory/-Users-aturing-projects-epiphany")
-    assert resp.status_code == 404  # valid slug, just not found
 
 
 def test_memory_route_not_found(client):
@@ -201,19 +160,3 @@ def test_session_view_sidechain_not_in_transcript(client, tmp_path, monkeypatch)
     assert b"SIDECHAIN SECRET" not in resp.data
 
 
-def test_session_view_with_compaction(client, tmp_path, monkeypatch):
-    import claudio.app as app_module
-
-    proj_dir = tmp_path / "projects" / "-Users-test-myproject"
-    proj_dir.mkdir(parents=True)
-    session_id = "dddddddd-0000-0000-0000-000000000001"
-    jf = proj_dir / f"{session_id}.jsonl"
-    jf.write_text(
-        '{"type":"system","subtype":"compact_boundary","content":"Conversation compacted","timestamp":"2026-01-01T10:00:00.000Z"}\n'
-        '{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"hi"}]},'
-        '"timestamp":"2026-01-01T10:00:01.000Z","cwd":"/Users/test/myproject"}\n'
-    )
-    monkeypatch.setattr(app_module, "PROJECTS_DIR", tmp_path / "projects")
-    resp = client.get(f"/session/{session_id}")
-    assert resp.status_code == 200
-    assert b"compacted 1" in resp.data

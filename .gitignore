@@ -32,3 +32,6 @@ CLAUDE.md
 .idea/
 *.swp
 .DS_Store
+
+# Working documents / feedback files (personal, never commit)
+specs/
