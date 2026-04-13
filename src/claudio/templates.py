@@ -352,6 +352,20 @@ BASE = """<!doctype html>
   .health-overall-ok      { background: rgba(74,222,128,0.15); color: var(--green); }
   .health-overall-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
   .health-overall-error   { background: rgba(239,68,68,0.15);  color: #ef4444; }
+
+  /* ── First-launch modal ─────────────────────────────────────── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; max-width: 460px; width: 100%; }
+  .modal-box h2 { font-size: 17px; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+  .modal-box p { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .modal-checklist { list-style: none; margin-bottom: 20px; display: flex; flex-direction: column; gap: 6px; }
+  .modal-checklist li { font-size: 13px; color: var(--text); display: flex; align-items: baseline; gap: 8px; }
+  .modal-checklist li::before { content: "✓"; color: var(--green); font-weight: 700; flex-shrink: 0; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-btn-primary { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .modal-btn-primary:hover { opacity: 0.9; }
+  .modal-btn-link { background: none; border: none; color: var(--accent2); font-size: 13px; cursor: pointer; padding: 8px 4px; }
+  .modal-btn-link:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -460,6 +474,34 @@ document.addEventListener('click', e => {
     .then(() => showCopyTip(el))
     .catch(() => {});
 });
+
+// ── First-launch modal ────────────────────────────────────────
+(function () {
+  const KEY = 'claudio-first-launch-acknowledged';
+  if (localStorage.getItem(KEY)) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'first-launch-modal';
+  overlay.innerHTML = `
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title">Welcome to Claudio v0.4</h2>
+      <p>Claudio reads local Claude Code session files from <code style="font-size:12px;background:var(--surface2);padding:1px 5px;border-radius:3px">~/.claude/</code>. This is fragile, it may break if Claude Code updates its file format.</p>
+      <ul class="modal-checklist">
+        <li>Health check runs on every page load</li>
+        <li>Export saves your session data as portable JSON</li>
+        <li>Pricing config lives in ~/.claudio/pricing.json. Edit this file to update rates.</li>
+      </ul>
+      <div class="modal-actions">
+        <button class="modal-btn-primary" onclick="dismissModal()">I Understand</button>
+        <a class="modal-btn-link" href="/health" onclick="localStorage.setItem('claudio-first-launch-acknowledged','true')">View Health Status</a>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  window.dismissModal = function () {
+    localStorage.setItem(KEY, 'true');
+    document.getElementById('first-launch-modal').remove();
+  };
+})();
 </script>
 </body>
 </html>"""
