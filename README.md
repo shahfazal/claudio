@@ -90,6 +90,20 @@ A few caveats:
 
 Close enough to be useful for understanding relative session cost, but not a billing figure.
 
+## Contributing
+
+Contributions welcome! Before opening a PR:
+
+- Run `uv run python -m ruff check .` and `uv run python -m ruff format .`
+- Add tests for new features (see `tests/` for examples)
+- Fill out the PR template with description and test plan
+
+**Legal:** Contributions must be your own work, created on your own time and resources,
+not subject to employer IP claims. By submitting a PR, you confirm you have the right to
+license this work under MIT.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
+
 ## ⚠️ Stability & Compatibility
 
 Claudio reads **undocumented local files** created by Claude Code:
