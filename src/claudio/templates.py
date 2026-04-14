@@ -185,9 +185,12 @@ BASE = """<!doctype html>
   .nav-brand { font-weight: 700; font-size: 16px; color: var(--accent); letter-spacing: 0.5px; text-decoration: none; }
   .nav-brand span { color: var(--muted); font-weight: 400; }
   .nav-brand:hover { text-decoration: none; }
-  .search-wrap { flex: 1; max-width: 400px; }
-  .search-wrap input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+  .search-wrap { flex: 1; max-width: 400px; position: relative; }
+  .search-wrap input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 28px 6px 12px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
   .search-wrap input:focus { border-color: var(--accent); }
+  .search-clear { display: none; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 4px; }
+  .search-clear:hover { color: var(--text); background: var(--surface2); }
+  .search-clear.visible { display: block; }
   .nav-spacer { flex: 1; }
 
   /* Theme toggle + GitHub icon */
@@ -317,6 +320,14 @@ BASE = """<!doctype html>
   mark { background: rgba(124, 106, 247, 0.28); color: inherit; border-radius: 2px; padding: 0 1px; }
   :root[data-theme="light"] mark { background: rgba(108, 92, 231, 0.18); }
   @media (prefers-color-scheme: light) { :root[data-theme="system"] mark { background: rgba(108, 92, 231, 0.18); } }
+
+  /* Full-text search results */
+  .search-results { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  .search-results .session-card { flex-direction: column; gap: 6px; padding: 14px 18px; border-radius: 8px; }
+  .search-snippet { font-size: 12px; color: var(--muted); line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: var(--surface2); border-radius: 4px; padding: 6px 10px; }
+  .search-snippet .role-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 6px; }
+  .search-snippet .role-tag.role-user { color: var(--accent2); }
+  .search-snippet .role-tag.role-assistant { color: var(--accent); }
 
   .hidden { display: none !important; }
   @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .side-panel { border-top: 1px solid var(--border); } }
@@ -511,6 +522,7 @@ INDEX_TMPL = """\
 {% block nav_extra %}
 <div class="search-wrap">
   <input type="text" id="search" placeholder="Search sessions…" autofocus>
+  <button type="button" id="search-clear" class="search-clear" aria-label="Clear search">&times;</button>
 </div>
 <span id="stats" style="font-size:12px;color:var(--muted)">{{ total }} sessions · {{ n_projects }} projects</span>
 {% endblock %}
@@ -549,7 +561,9 @@ INDEX_TMPL = """\
 
 <script>
 const search = document.getElementById('search');
+const clearBtn = document.getElementById('search-clear');
 const statsEl = document.getElementById('stats');
+const container = document.querySelector('.container');
 const TOTAL_SESSIONS = {{ total }};
 const TOTAL_PROJECTS = {{ n_projects }};
 
@@ -570,18 +584,15 @@ function highlight(text, q) {
   return out;
 }
 
-search.addEventListener('input', () => {
-  const q = search.value.toLowerCase().trim();
-
+/* --- Local title/project filtering (instant) --- */
+function filterLocal(q) {
   document.querySelectorAll('.session-card').forEach(card => {
     const title = card.dataset.title || '';
     const proj  = card.closest('.project-group')?.dataset.project || '';
     const match = !q || title.includes(q) || proj.includes(q);
     card.classList.toggle('hidden', !match);
-    // highlight() calls esc() on all user content before inserting <mark> tags — XSS safe.
     card.querySelector('.session-title').innerHTML = highlight(card.dataset.rawTitle || title, q);
   });
-
   let visibleSessions = 0, visibleProjects = 0;
   document.querySelectorAll('.project-group').forEach(g => {
     const visible = [...g.querySelectorAll('.session-card')].some(c => !c.classList.contains('hidden'));
@@ -592,12 +603,103 @@ search.addEventListener('input', () => {
       g.querySelector('.project-name').innerHTML = highlight(g.dataset.rawProject || '', q);
     }
   });
+  statsEl.textContent = q
+    ? `${visibleSessions} session${visibleSessions !== 1 ? 's' : ''} · ${visibleProjects} project${visibleProjects !== 1 ? 's' : ''}`
+    : `${TOTAL_SESSIONS} sessions · ${TOTAL_PROJECTS} projects`;
+}
 
-  if (q) {
-    statsEl.textContent = `${visibleSessions} session${visibleSessions !== 1 ? 's' : ''} · ${visibleProjects} project${visibleProjects !== 1 ? 's' : ''}`;
-  } else {
-    statsEl.textContent = `${TOTAL_SESSIONS} sessions · ${TOTAL_PROJECTS} projects`;
+/* --- Full-text search results panel --- */
+let searchResultsEl = null;
+
+function showSearchResults(results, q) {
+  if (!searchResultsEl) {
+    searchResultsEl = document.createElement('div');
+    searchResultsEl.className = 'search-results';
+    container.parentNode.insertBefore(searchResultsEl, container.nextSibling);
   }
+  container.classList.add('hidden');
+
+  if (results.length === 0) {
+    searchResultsEl.innerHTML = '<p style="color:var(--muted);font-size:13px;">No messages matched your search.</p>';
+    statsEl.textContent = '0 results';
+    return;
+  }
+
+  let html = '';
+  for (const r of results) {
+    let snippetsHtml = '';
+    for (const s of r.snippets) {
+      snippetsHtml += `<div class="search-snippet"><span class="role-tag role-${esc(s.role)}">${esc(s.role)}</span>${highlight(s.snippet, q)}</div>`;
+    }
+    html += `<a class="session-card" href="/session/${esc(r.session_id)}">
+      <div style="display:flex;align-items:baseline;gap:10px;">
+        <span class="session-title" style="flex:1">${highlight(r.title, q)}</span>
+        <span class="ts">${esc(r.started_at)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:monospace;">${highlight(r.project, q)}</div>
+      ${snippetsHtml}
+    </a>`;
+  }
+  searchResultsEl.innerHTML = html;
+  statsEl.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
+}
+
+function hideSearchResults() {
+  if (searchResultsEl) {
+    searchResultsEl.innerHTML = '';
+    searchResultsEl.remove();
+    searchResultsEl = null;
+  }
+  container.classList.remove('hidden');
+}
+
+/* --- Debounced search --- */
+let debounceTimer = null;
+let activeRequest = null;
+
+search.addEventListener('input', () => {
+  const q = search.value.toLowerCase().trim();
+  clearBtn.classList.toggle('visible', !!q);
+
+  if (!q) {
+    hideSearchResults();
+    filterLocal('');
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (activeRequest) { activeRequest.abort(); activeRequest = null; }
+    return;
+  }
+
+  /* Instant: filter titles/projects */
+  filterLocal(q);
+
+  /* Debounced: full-text search */
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    if (activeRequest) activeRequest.abort();
+    const ctrl = new AbortController();
+    activeRequest = ctrl;
+    fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(results => {
+        activeRequest = null;
+        if (search.value.toLowerCase().trim() === q) {
+          showSearchResults(results, q);
+        }
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error('Search failed:', err);
+      });
+  }, 300);
+});
+
+clearBtn.addEventListener('click', () => {
+  search.value = '';
+  clearBtn.classList.remove('visible');
+  hideSearchResults();
+  filterLocal('');
+  if (debounceTimer) clearTimeout(debounceTimer);
+  if (activeRequest) { activeRequest.abort(); activeRequest = null; }
+  search.focus();
 });
 </script>
 {% endblock %}

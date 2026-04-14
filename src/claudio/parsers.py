@@ -1,5 +1,7 @@
 """Data loading and parsing for Claude Code session files."""
 
+from __future__ import annotations
+
 import json
 import logging
 import re

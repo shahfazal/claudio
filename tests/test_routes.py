@@ -140,6 +140,66 @@ def test_session_view_cost_unknown_rendered(client, sample_jsonl, monkeypatch):
     assert b"unknown model" in resp.data
 
 
+# ---------------------------------------------------------------------------
+# /api/search
+# ---------------------------------------------------------------------------
+
+
+def test_search_requires_min_length(client):
+    resp = client.get("/api/search?q=a")
+    assert resp.status_code == 200
+    assert resp.json == []
+
+
+def test_search_empty_query(client):
+    resp = client.get("/api/search?q=")
+    assert resp.status_code == 200
+    assert resp.json == []
+
+
+def test_search_finds_message_content(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/api/search?q=login+bug")
+
+    assert resp.status_code == 200
+    data = resp.json
+    assert len(data) == 1
+    assert data[0]["session_id"] == "aaaabbbb-0000-0000-0000-000000000001"
+    assert any("login bug" in s["snippet"].lower() for s in data[0]["snippets"])
+
+
+def test_search_no_match(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/api/search?q=xyznonexistent")
+
+    assert resp.status_code == 200
+    assert resp.json == []
+
+
+def test_search_returns_snippets_with_context(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
+        resp = client.get("/api/search?q=test_auth")
+
+    assert resp.status_code == 200
+    data = resp.json
+    assert len(data) == 1
+    assert data[0]["snippets"][0]["role"] == "assistant"
+
+
+# ---------------------------------------------------------------------------
+# /session — additional branches
+# ---------------------------------------------------------------------------
+
+
 def test_session_view_sidechain_not_in_transcript(client, tmp_path, monkeypatch):
     import claudio.app as app_module
 

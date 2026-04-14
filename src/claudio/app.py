@@ -6,7 +6,7 @@ import os
 import re
 from datetime import datetime, timezone
 
-from flask import Flask, Response, render_template
+from flask import Flask, Response, render_template, request
 from jinja2 import ChoiceLoader, DictLoader
 
 from claudio.health import check_environment
@@ -204,6 +204,59 @@ def export_sessions():
         mimetype="application/json",
         headers={"Content-Disposition": f'attachment; filename="claudio-export-{filename_date}.json"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Search API
+# ---------------------------------------------------------------------------
+
+_SNIPPET_RADIUS = 80  # characters of context around each match
+
+
+@app.route("/api/search")
+def api_search():
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return Response(json.dumps([]), mimetype="application/json")
+
+    q_lower = q.lower()
+    sessions = load_all_sessions()
+    results = []
+
+    for s in sessions:
+        snippets = []
+        for msg in s.get("messages", []):
+            text = msg.get("text", "")
+            lower_text = text.lower()
+            idx = lower_text.find(q_lower)
+            if idx < 0:
+                continue
+            start = max(0, idx - _SNIPPET_RADIUS)
+            end = min(len(text), idx + len(q) + _SNIPPET_RADIUS)
+            snippet = ("…" if start > 0 else "") + text[start:end] + ("…" if end < len(text) else "")
+            snippets.append({
+                "role": msg.get("role", ""),
+                "snippet": snippet,
+            })
+            if len(snippets) >= 3:
+                break
+
+        if snippets:
+            slug = s.get("project_slug", "")
+            cwd = s.get("cwd") or ("/" + slug.lstrip("-").replace("-", "/"))
+            results.append({
+                "session_id": s["session_id"],
+                "title": session_title(s),
+                "project": strip_home(cwd),
+                "started_at": fmt_ts(s.get("started_at")),
+                "message_count": s.get("message_count", 0),
+                "cost": fmt_cost(s.get("cost_usd")),
+                "snippets": snippets,
+            })
+            if len(results) >= 50:
+                break
+
+    return Response(json.dumps(results), mimetype="application/json")
 
 
 # ---------------------------------------------------------------------------
