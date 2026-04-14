@@ -70,6 +70,19 @@ Key things to test:
 
 ## Opening a PR
 
+A PR template will auto-populate the description box when you open a PR. Fill it out fully.
+
 - Fork the repo, create a branch, open a PR against `main`
 - Describe what you changed and why
+- Include a test plan: how did you verify this locally?
 - If it's a UI change, include a screenshot
+
+## Legal
+
+Contributions must be your own work, created on your own time and resources, not subject
+to employer IP claims. By submitting a PR, you confirm you have the right to license your
+contribution under the MIT license.
+
+Claudio is a personal project developed on personal time and resources. It is not
+affiliated with, endorsed by, or owned by any current or past employer. Contributors
+retain ownership of their contributions under the MIT license.
