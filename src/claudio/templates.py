@@ -98,7 +98,7 @@ def pie_icon(size: int = 13) -> Markup:
         f'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
         f'<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>'
         f'<path d="M22 12A10 10 0 0 0 12 2v10z"/>'
-        f'</svg>'
+        f"</svg>"
     )
 
 
@@ -881,8 +881,8 @@ STATS_TMPL = """\
   /* Empty state overlay */
   .cost-grid-wrap { position: relative; }
   .cost-grid-blur, .ghost-blur { filter: blur(4px); pointer-events: none; user-select: none; opacity: 0.5; }
-  .empty-overlay { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; }
-  .empty-msg { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 32px; font-size: 13px; color: var(--muted); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+  .empty-overlay { position: absolute; inset: 0; z-index: 10; display: flex; align-items: flex-start; justify-content: center; }
+  .empty-msg { position: sticky; top: 30vh; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 32px; font-size: 13px; color: var(--muted); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
 
   /* Cost charts 2-column */
   .cost-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -1048,7 +1048,7 @@ STATS_TMPL = """\
   });
 
   document.addEventListener('click', function (e) {
-    if (isOpen() && !panel.contains(e.target) && e.target !== toggle) closePanel();
+    if (isOpen() && !panel.contains(e.target) && !toggle.contains(e.target)) closePanel();
   });
 
   document.addEventListener('keydown', function (e) {

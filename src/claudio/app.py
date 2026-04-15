@@ -4,9 +4,8 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
-
 from datetime import date as date_type
+from datetime import datetime, timezone
 
 from flask import Flask, Response, render_template, request
 from jinja2 import ChoiceLoader, DictLoader
@@ -289,17 +288,28 @@ def stats():
     ]
 
     top_by_cost = sorted(
-        [{"title": s["title"], "cost_usd": round(s.get("cost_usd") or 0, 4), "session_id": s["session_id"]}
-         for s in filtered if s.get("cost_usd")],
+        [
+            {
+                "title": s["title"],
+                "cost_usd": round(s.get("cost_usd") or 0, 4),
+                "session_id": s["session_id"],
+            }
+            for s in filtered
+            if s.get("cost_usd")
+        ],
         key=lambda x: x["cost_usd"],
         reverse=True,
     )
 
     by_project = sorted(
-        [{"label": g["label"],
-          "cost_usd": round(sum(s.get("cost_usd") or 0 for s in g["sessions"]), 4),
-          "count": len(g["sessions"])}
-         for g in groups],
+        [
+            {
+                "label": g["label"],
+                "cost_usd": round(sum(s.get("cost_usd") or 0 for s in g["sessions"]), 4),
+                "count": len(g["sessions"]),
+            }
+            for g in groups
+        ],
         key=lambda x: x["cost_usd"],
         reverse=True,
     )
@@ -307,7 +317,11 @@ def stats():
     total_cost = sum(s.get("cost_usd") or 0 for s in filtered)
     total_messages = sum(s.get("message_count") or 0 for s in filtered)
     sessions_with_cost = [s for s in filtered if s.get("cost_usd")]
-    avg_cost = (sum(s["cost_usd"] for s in sessions_with_cost) / len(sessions_with_cost)) if sessions_with_cost else 0
+    avg_cost = (
+        (sum(s["cost_usd"] for s in sessions_with_cost) / len(sessions_with_cost))
+        if sessions_with_cost
+        else 0
+    )
 
     payload = {"sessions_raw": sessions_raw, "top_by_cost": top_by_cost, "by_project": by_project}
 
@@ -322,16 +336,27 @@ def stats():
                 for s in sessions
             ],
             "top_by_cost": sorted(
-                [{"title": s["title"], "cost_usd": round(s.get("cost_usd") or 0, 4), "session_id": s["session_id"]}
-                 for s in sessions if s.get("cost_usd")],
+                [
+                    {
+                        "title": s["title"],
+                        "cost_usd": round(s.get("cost_usd") or 0, 4),
+                        "session_id": s["session_id"],
+                    }
+                    for s in sessions
+                    if s.get("cost_usd")
+                ],
                 key=lambda x: x["cost_usd"],
                 reverse=True,
             ),
             "by_project": sorted(
-                [{"label": g["label"],
-                  "cost_usd": round(sum(s.get("cost_usd") or 0 for s in g["sessions"]), 4),
-                  "count": len(g["sessions"])}
-                 for g in ghost_groups],
+                [
+                    {
+                        "label": g["label"],
+                        "cost_usd": round(sum(s.get("cost_usd") or 0 for s in g["sessions"]), 4),
+                        "count": len(g["sessions"]),
+                    }
+                    for g in ghost_groups
+                ],
                 key=lambda x: x["cost_usd"],
                 reverse=True,
             ),
