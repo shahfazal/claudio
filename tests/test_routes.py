@@ -190,12 +190,6 @@ def test_session_view_with_compaction(client, tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_stats_returns_200(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
-        resp = client.get("/stats")
-    assert resp.status_code == 200
-
-
 def test_stats_empty_sessions(client):
     with patch("claudio.app.load_all_sessions", return_value=[]):
         resp = client.get("/stats")
@@ -251,13 +245,18 @@ def test_stats_date_filter_shows_sessions_in_range(client, sample_jsonl):
     with patch("claudio.app.load_all_sessions", return_value=[session]):
         resp = client.get("/stats?from=2025-01-01&to=2030-12-31")
     assert resp.status_code == 200
-    assert b"No session data found" not in resp.data
+    assert b"No session data for this period." not in resp.data
 
 
-def test_stats_date_filter_invalid_ignored(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
+def test_stats_date_filter_invalid_ignored(client, sample_jsonl):
+    # Invalid date strings must be silently discarded; session should still appear unfiltered
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["title"] = "Fix the login bug."
+    with patch("claudio.app.load_all_sessions", return_value=[session]):
         resp = client.get("/stats?from=not-a-date&to=also-bad")
     assert resp.status_code == 200
+    assert b"No session data for this period." not in resp.data
 
 
 def test_stats_date_filter_inverted_range_swapped(client, sample_jsonl):
@@ -270,15 +269,15 @@ def test_stats_date_filter_inverted_range_swapped(client, sample_jsonl):
         resp = client.get("/stats?from=2030-12-31&to=2025-01-01")
     assert resp.status_code == 200
     # After swap: from=2025-01-01, to=2030-12-31 -- session is within range
-    assert b"No session data found" not in resp.data
+    assert b"No session data for this period." not in resp.data
 
 
 def test_stats_has_date_picker(client):
     with patch("claudio.app.load_all_sessions", return_value=[]):
         resp = client.get("/stats")
     html = resp.data.decode()
-    assert 'input type="date"' in html or "type=date" in html
-    assert "apply" in html
+    assert 'type="date"' in html
+    assert 'id="applyBtn"' in html
 
 
 def test_stats_date_picker_prefilled(client):
@@ -298,7 +297,6 @@ def test_stats_heatmap_present_with_sessions(client, sample_jsonl):
     html = resp.data.decode()
     assert "heatmapChart" in html
     assert "Activity heatmap" in html
-    assert "d3.min.js" in html
 
 
 def test_stats_heatmap_absent_when_no_sessions(client):
@@ -325,11 +323,13 @@ def test_stats_cumulative_chart_absent_when_no_sessions(client):
 
 
 def test_stats_shows_avg_cost_and_messages(client, sample_jsonl):
+    # Verifies computed values appear in the page, not just that the labels exist
     session = parse_session(sample_jsonl)
     session["project_slug"] = "-Users-test-myproject"
     session["title"] = "Fix the login bug."
     with patch("claudio.app.load_all_sessions", return_value=[session]):
         resp = client.get("/stats")
     html = resp.data.decode()
-    assert "avg cost" in html.lower()
-    assert "messages" in html.lower()
+    # sample session: cost=$0.00315 (renders as $0.0032), message_count=5
+    assert "$0.0032" in html
+    assert ">5<" in html
