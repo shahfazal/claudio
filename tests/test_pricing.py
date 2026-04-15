@@ -1,7 +1,6 @@
 """Tests for pricing config loading and table building."""
 
 import json
-import shutil
 from pathlib import Path
 
 import pytest
@@ -18,10 +17,21 @@ _DEFAULT_PATH = Path(__file__).parent.parent / "src" / "claudio" / "pricing.defa
 
 def test_load_pricing_config_reads_user_file(tmp_path):
     user_file = tmp_path / "pricing.json"
-    user_file.write_text(json.dumps({
-        "last_updated": "2026-01-01",
-        "models": {"my-custom-model": {"input": 1.0, "cache_write": 1.25, "cache_read": 0.1, "output": 5.0}},
-    }))
+    user_file.write_text(
+        json.dumps(
+            {
+                "last_updated": "2026-01-01",
+                "models": {
+                    "my-custom-model": {
+                        "input": 1.0,
+                        "cache_write": 1.25,
+                        "cache_read": 0.1,
+                        "output": 5.0,
+                    }
+                },
+            }
+        )
+    )
 
     config = load_pricing_config(user_path=user_file, default_path=_DEFAULT_PATH)
 
@@ -104,8 +114,8 @@ def test_build_pricing_table_defaults_cache_rates():
     inp, cw, cr, out = table["minimal-model"]
     assert inp == 4.0
     assert out == 16.0
-    assert cw == pytest.approx(5.0)   # 4.0 * 1.25
-    assert cr == pytest.approx(0.4)   # 4.0 * 0.1
+    assert cw == pytest.approx(5.0)  # 4.0 * 1.25
+    assert cr == pytest.approx(0.4)  # 4.0 * 0.1
 
 
 def test_build_pricing_table_empty_models():

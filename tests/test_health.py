@@ -1,10 +1,7 @@
 """Tests for src/claudio/health.py."""
 
 import json
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from claudio.health import (
     check_claude_directory,
@@ -12,7 +9,6 @@ from claudio.health import (
     check_pricing_freshness,
     check_session_schema,
 )
-
 
 # ---------------------------------------------------------------------------
 # check_claude_directory
@@ -236,14 +232,31 @@ def test_environment_warning_on_stale_pricing(tmp_path):
 
 
 def test_health_route_renders(client):
-    with patch("claudio.app.check_environment", return_value={
-        "status": "ok",
-        "checks": {
-            "claude_dir": {"ok": True, "message": "Found ~/.claude (5 projects)", "missing": []},
-            "schema": {"ok": True, "message": "Schema OK (sampled 1 of 5 sessions)", "parsed_count": 1, "total_count": 5},
-            "pricing": {"ok": True, "message": "Using built-in pricing (no user config)", "last_updated": None, "days_old": None},
+    with patch(
+        "claudio.app.check_environment",
+        return_value={
+            "status": "ok",
+            "checks": {
+                "claude_dir": {
+                    "ok": True,
+                    "message": "Found ~/.claude (5 projects)",
+                    "missing": [],
+                },
+                "schema": {
+                    "ok": True,
+                    "message": "Schema OK (sampled 1 of 5 sessions)",
+                    "parsed_count": 1,
+                    "total_count": 5,
+                },
+                "pricing": {
+                    "ok": True,
+                    "message": "Using built-in pricing (no user config)",
+                    "last_updated": None,
+                    "days_old": None,
+                },
+            },
         },
-    }):
+    ):
         resp = client.get("/health")
 
     assert resp.status_code == 200
@@ -252,14 +265,31 @@ def test_health_route_renders(client):
 
 
 def test_health_route_shows_error(client):
-    with patch("claudio.app.check_environment", return_value={
-        "status": "error",
-        "checks": {
-            "claude_dir": {"ok": False, "message": "~/.claude not found", "missing": ["~/.claude"]},
-            "schema": {"ok": False, "message": "projects/ directory not found", "parsed_count": 0, "total_count": 0},
-            "pricing": {"ok": True, "message": "Using built-in pricing (no user config)", "last_updated": None, "days_old": None},
+    with patch(
+        "claudio.app.check_environment",
+        return_value={
+            "status": "error",
+            "checks": {
+                "claude_dir": {
+                    "ok": False,
+                    "message": "~/.claude not found",
+                    "missing": ["~/.claude"],
+                },
+                "schema": {
+                    "ok": False,
+                    "message": "projects/ directory not found",
+                    "parsed_count": 0,
+                    "total_count": 0,
+                },
+                "pricing": {
+                    "ok": True,
+                    "message": "Using built-in pricing (no user config)",
+                    "last_updated": None,
+                    "days_old": None,
+                },
+            },
         },
-    }):
+    ):
         resp = client.get("/health")
 
     assert resp.status_code == 200
@@ -268,14 +298,22 @@ def test_health_route_shows_error(client):
 
 
 def test_health_banner_shown_on_error(client):
-    with patch("claudio.app.check_environment", return_value={
-        "status": "error",
-        "checks": {
-            "claude_dir": {"ok": False, "message": "~/.claude not found", "missing": []},
-            "schema": {"ok": True, "message": "Schema OK", "parsed_count": 0, "total_count": 0},
-            "pricing": {"ok": True, "message": "Using built-in pricing", "last_updated": None, "days_old": None},
+    with patch(
+        "claudio.app.check_environment",
+        return_value={
+            "status": "error",
+            "checks": {
+                "claude_dir": {"ok": False, "message": "~/.claude not found", "missing": []},
+                "schema": {"ok": True, "message": "Schema OK", "parsed_count": 0, "total_count": 0},
+                "pricing": {
+                    "ok": True,
+                    "message": "Using built-in pricing",
+                    "last_updated": None,
+                    "days_old": None,
+                },
+            },
         },
-    }):
+    ):
         with patch("claudio.app.load_all_sessions", return_value=[]):
             resp = client.get("/")
 
@@ -284,14 +322,17 @@ def test_health_banner_shown_on_error(client):
 
 
 def test_health_banner_hidden_when_ok(client):
-    with patch("claudio.app.check_environment", return_value={
-        "status": "ok",
-        "checks": {
-            "claude_dir": {"ok": True, "message": "All good", "missing": []},
-            "schema": {"ok": True, "message": "Schema OK", "parsed_count": 1, "total_count": 1},
-            "pricing": {"ok": True, "message": "Fresh", "last_updated": None, "days_old": None},
+    with patch(
+        "claudio.app.check_environment",
+        return_value={
+            "status": "ok",
+            "checks": {
+                "claude_dir": {"ok": True, "message": "All good", "missing": []},
+                "schema": {"ok": True, "message": "Schema OK", "parsed_count": 1, "total_count": 1},
+                "pricing": {"ok": True, "message": "Fresh", "last_updated": None, "days_old": None},
+            },
         },
-    }):
+    ):
         with patch("claudio.app.load_all_sessions", return_value=[]):
             resp = client.get("/")
 

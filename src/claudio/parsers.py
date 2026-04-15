@@ -75,7 +75,9 @@ def _build_pricing_table(config: dict) -> dict[str, tuple[float, float, float, f
 
 
 try:
-    PRICING: dict[str, tuple[float, float, float, float]] = _build_pricing_table(load_pricing_config())
+    PRICING: dict[str, tuple[float, float, float, float]] = _build_pricing_table(
+        load_pricing_config()
+    )
 except Exception as exc:
     logging.warning("Failed to load pricing config, using empty table: %s", exc)
     PRICING = {}
@@ -468,8 +470,7 @@ def group_by_project(sessions: list) -> list:
         memory_dir = PROJECTS_DIR / slug / "memory"
         if memory_dir.exists():
             group["memory_count"] = sum(
-                1 for f in memory_dir.iterdir()
-                if f.suffix == ".md" and f.name != "MEMORY.md"
+                1 for f in memory_dir.iterdir() if f.suffix == ".md" and f.name != "MEMORY.md"
             )
 
     return sorted(
@@ -496,7 +497,7 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
         if ":" in line:
             key, _, val = line.partition(":")
             meta[key.strip()] = val.strip()
-    return meta, text[end + 5:].strip()
+    return meta, text[end + 5 :].strip()
 
 
 _VALID_MEMORY_TYPES = {"user", "feedback", "project", "reference"}
@@ -528,12 +529,14 @@ def load_project_memory(project_slug: str) -> dict:
         else:
             meta, body = _parse_frontmatter(text)
             raw_type = meta.get("type", "")
-            files.append({
-                "filename": mf.name,
-                "name": meta.get("name", mf.stem),
-                "description": meta.get("description", ""),
-                "type": raw_type if raw_type in _VALID_MEMORY_TYPES else "",
-                "body": body,
-            })
+            files.append(
+                {
+                    "filename": mf.name,
+                    "name": meta.get("name", mf.stem),
+                    "description": meta.get("description", ""),
+                    "type": raw_type if raw_type in _VALID_MEMORY_TYPES else "",
+                    "body": body,
+                }
+            )
 
     return {"count": len(files), "index": index_content, "files": files}
