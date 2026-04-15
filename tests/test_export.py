@@ -12,7 +12,7 @@ def test_export_returns_json_download(client):
     assert resp.mimetype == "application/json"
     assert "attachment" in resp.headers["Content-Disposition"]
     assert "claudio-export-" in resp.headers["Content-Disposition"]
-    assert resp.headers["Content-Disposition"].endswith(".json\"")
+    assert resp.headers["Content-Disposition"].endswith('.json"')
 
 
 def test_export_structure(client):

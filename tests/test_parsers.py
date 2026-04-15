@@ -21,7 +21,6 @@ from claudio.parsers import (
     parse_session,
     project_display,
     session_title,
-    strip_home,
 )
 
 # ---------------------------------------------------------------------------
@@ -201,15 +200,21 @@ def test_session_title_priority4_no_date():
 
 def test_fmt_ts_iso_string():
     from datetime import datetime
+
     ts = "2026-01-01T10:00:01.000Z"
-    expected = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M")
+    expected = (
+        datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M")
+    )
     assert fmt_ts(ts) == expected
 
 
 def test_fmt_ts_unix_ms():
     from datetime import datetime, timezone
+
     ms = 1735689600000
-    expected = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    expected = (
+        datetime.fromtimestamp(ms / 1000, tz=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    )
     assert fmt_ts(ms) == expected
 
 
@@ -272,11 +277,14 @@ def test_fmt_cost_falsy_returns_empty():
     assert fmt_cost(0) == ""
 
 
-@pytest.mark.parametrize("cost,expected", [
-    (0.009,   "$0.0090"),   # below $0.01 -> 4 decimal
-    (0.01,    "$0.01"),     # boundary -> 2 decimal
-    (1.2345,  "$1.23"),     # normal
-])
+@pytest.mark.parametrize(
+    "cost,expected",
+    [
+        (0.009, "$0.0090"),  # below $0.01 -> 4 decimal
+        (0.01, "$0.01"),  # boundary -> 2 decimal
+        (1.2345, "$1.23"),  # normal
+    ],
+)
 def test_fmt_cost_formatting(cost, expected):
     assert fmt_cost(cost) == expected
 
@@ -286,14 +294,17 @@ def test_fmt_cost_formatting(cost, expected):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("```python\ncode\n```\nafter",         "after"),           # code block
-    ("use `foo` here",                      "use foo here"),    # inline code
-    ("**bold** text",                       "bold text"),       # bold
-    ("_italic_ text",                       "italic text"),     # underscore
-    ("[click](https://example.com)",        "click"),           # link
-    ("> quoted",                            "quoted"),          # blockquote
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("```python\ncode\n```\nafter", "after"),  # code block
+        ("use `foo` here", "use foo here"),  # inline code
+        ("**bold** text", "bold text"),  # bold
+        ("_italic_ text", "italic text"),  # underscore
+        ("[click](https://example.com)", "click"),  # link
+        ("> quoted", "quoted"),  # blockquote
+    ],
+)
 def test_strip_markdown(raw, expected):
     assert _strip_markdown(raw) == expected
 
@@ -388,7 +399,7 @@ def test_parse_session_malformed_json_lines_skipped(tmp_path):
     jf = tmp_path / "abc.jsonl"
     jf.write_text(
         '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"first"}]},"timestamp":"2026-01-01T10:00:00.000Z"}\n'
-        'this is not json at all\n'
+        "this is not json at all\n"
         '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"second"}]},"timestamp":"2026-01-01T10:00:01.000Z"}\n'
     )
     s = parse_session(jf)
@@ -430,17 +441,43 @@ def test_parse_session_sidechain_message_included(tmp_path):
 
 def test_load_history_file_not_exists(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "HISTORY_FILE", tmp_path / "nonexistent.jsonl")
     assert load_history() == {}
 
 
 def test_load_history_groups_and_sorts(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     hf = tmp_path / "history.jsonl"
     hf.write_text(
-        json.dumps({"project": "/proj-a", "display": "older", "timestamp": "2026-01-01T09:00:00Z", "sessionId": "s1"}) + "\n" +
-        json.dumps({"project": "/proj-a", "display": "newer", "timestamp": "2026-01-01T10:00:00Z", "sessionId": "s2"}) + "\n" +
-        json.dumps({"project": "/proj-b", "display": "only", "timestamp": "2026-01-01T08:00:00Z", "sessionId": "s3"}) + "\n"
+        json.dumps(
+            {
+                "project": "/proj-a",
+                "display": "older",
+                "timestamp": "2026-01-01T09:00:00Z",
+                "sessionId": "s1",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "project": "/proj-a",
+                "display": "newer",
+                "timestamp": "2026-01-01T10:00:00Z",
+                "sessionId": "s2",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "project": "/proj-b",
+                "display": "only",
+                "timestamp": "2026-01-01T08:00:00Z",
+                "sessionId": "s3",
+            }
+        )
+        + "\n"
     )
     monkeypatch.setattr(parsers_module, "HISTORY_FILE", hf)
     history = load_history()
@@ -450,10 +487,19 @@ def test_load_history_groups_and_sorts(tmp_path, monkeypatch):
 
 def test_load_history_malformed_line_skipped(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     hf = tmp_path / "history.jsonl"
     hf.write_text(
-        "not json\n" +
-        json.dumps({"project": "/proj-a", "display": "ok", "timestamp": "2026-01-01T10:00:00Z", "sessionId": "s1"}) + "\n"
+        "not json\n"
+        + json.dumps(
+            {
+                "project": "/proj-a",
+                "display": "ok",
+                "timestamp": "2026-01-01T10:00:00Z",
+                "sessionId": "s1",
+            }
+        )
+        + "\n"
     )
     monkeypatch.setattr(parsers_module, "HISTORY_FILE", hf)
     history = load_history()
@@ -467,14 +513,18 @@ def test_load_history_malformed_line_skipped(tmp_path, monkeypatch):
 
 def test_load_todos_dir_not_exists(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path / "nonexistent")
     assert load_todos() == {}
 
 
 def test_load_todos_basic(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
-    (tmp_path / "session-uuid-1234.json").write_text(json.dumps([{"content": "do something", "status": "pending"}]))
+    (tmp_path / "session-uuid-1234.json").write_text(
+        json.dumps([{"content": "do something", "status": "pending"}])
+    )
     todos = load_todos()
     assert "session-uuid-1234" in todos
     assert todos["session-uuid-1234"][0]["content"] == "do something"
@@ -482,14 +532,18 @@ def test_load_todos_basic(tmp_path, monkeypatch):
 
 def test_load_todos_agent_filename_splitting(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
-    (tmp_path / "my-session-id-agent-abc123.json").write_text(json.dumps([{"content": "task", "status": "done"}]))
+    (tmp_path / "my-session-id-agent-abc123.json").write_text(
+        json.dumps([{"content": "task", "status": "done"}])
+    )
     todos = load_todos()
     assert "my-session-id" in todos
 
 
 def test_load_todos_non_list_skipped(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "TODOS_DIR", tmp_path)
     (tmp_path / "bad.json").write_text(json.dumps({"not": "a list"}))
     todos = load_todos()
@@ -503,6 +557,7 @@ def test_load_todos_non_list_skipped(tmp_path, monkeypatch):
 
 def test_load_project_memory_dir_not_exists(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
     result = load_project_memory("nonexistent-slug")
     assert result == {"count": 0, "index": None, "files": []}
@@ -510,6 +565,7 @@ def test_load_project_memory_dir_not_exists(tmp_path, monkeypatch):
 
 def test_load_project_memory_index_vs_files(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
     mem_dir = tmp_path / "my-slug" / "memory"
     mem_dir.mkdir(parents=True)
@@ -525,6 +581,7 @@ def test_load_project_memory_index_vs_files(tmp_path, monkeypatch):
 
 def test_load_project_memory_invalid_type_blanked(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
     mem_dir = tmp_path / "my-slug" / "memory"
     mem_dir.mkdir(parents=True)
@@ -540,13 +597,22 @@ def test_load_project_memory_invalid_type_blanked(tmp_path, monkeypatch):
 
 def test_group_by_project_memory_count_excludes_memory_md(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
     mem_dir = tmp_path / "proj-a" / "memory"
     mem_dir.mkdir(parents=True)
     (mem_dir / "MEMORY.md").write_text("# index")
     (mem_dir / "feedback_foo.md").write_text("---\ntype: feedback\n---\nbody")
     (mem_dir / "user_profile.md").write_text("---\ntype: user\n---\nbody")
-    sessions = [{"project_slug": "proj-a", "cwd": "/a", "started_at": "2026-01-01T00:00:00Z", "messages": [], "compact_count": 0}]
+    sessions = [
+        {
+            "project_slug": "proj-a",
+            "cwd": "/a",
+            "started_at": "2026-01-01T00:00:00Z",
+            "messages": [],
+            "compact_count": 0,
+        }
+    ]
     groups = group_by_project(sessions)
     assert groups[0]["memory_count"] == 2  # MEMORY.md excluded
 
@@ -558,10 +624,12 @@ def test_group_by_project_memory_count_excludes_memory_md(tmp_path, monkeypatch)
 
 def test_parse_cache_populates_on_load(sample_jsonl, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "PROJECTS_DIR", sample_jsonl.parent.parent)
     parsers_module._parse_cache.clear()
 
     from claudio.parsers import load_all_sessions
+
     load_all_sessions()
 
     assert sample_jsonl in parsers_module._parse_cache
@@ -571,10 +639,12 @@ def test_parse_cache_populates_on_load(sample_jsonl, monkeypatch):
 
 def test_parse_cache_invalidates_on_mtime_change(sample_jsonl, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "PROJECTS_DIR", sample_jsonl.parent.parent)
     parsers_module._parse_cache.clear()
 
     from claudio.parsers import load_all_sessions
+
     load_all_sessions()
 
     # Simulate stale cache entry from a previous run
@@ -593,6 +663,7 @@ def test_parse_cache_invalidates_on_mtime_change(sample_jsonl, monkeypatch):
 
 def test_load_all_sessions_sort_handles_numeric_timestamp(tmp_path, monkeypatch):
     import claudio.parsers as parsers_module
+
     monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
     parsers_module._parse_cache.clear()
 
@@ -611,6 +682,7 @@ def test_load_all_sessions_sort_handles_numeric_timestamp(tmp_path, monkeypatch)
     )
 
     from claudio.parsers import load_all_sessions
+
     sessions = load_all_sessions()
     assert len(sessions) == 2
     # ISO (newer) should sort first

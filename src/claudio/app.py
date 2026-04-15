@@ -23,7 +23,15 @@ from claudio.parsers import (
     session_title,
     strip_home,
 )
-from claudio.templates import BASE, HEALTH_TMPL, INDEX_TMPL, MEMORY_TMPL, SESSION_TMPL, archive_icon, brain_icon
+from claudio.templates import (
+    BASE,
+    HEALTH_TMPL,
+    INDEX_TMPL,
+    MEMORY_TMPL,
+    SESSION_TMPL,
+    archive_icon,
+    brain_icon,
+)
 
 app = Flask(__name__)
 
@@ -47,8 +55,12 @@ def inject_health():
 
 
 app.jinja_env.globals.update(
-    session_title=session_title, fmt_ts=fmt_ts, fmt_cost=fmt_cost,
-    strip_home=strip_home, brain_icon=brain_icon, archive_icon=archive_icon,
+    session_title=session_title,
+    fmt_ts=fmt_ts,
+    fmt_cost=fmt_cost,
+    strip_home=strip_home,
+    brain_icon=brain_icon,
+    archive_icon=archive_icon,
 )
 
 
@@ -87,7 +99,12 @@ def _export_pricing() -> dict:
     return {
         "source": "built-in (parsers.py)",
         "models": {
-            model: {"input": rates[0], "cache_write": rates[1], "cache_read": rates[2], "output": rates[3]}
+            model: {
+                "input": rates[0],
+                "cache_write": rates[1],
+                "cache_read": rates[2],
+                "output": rates[3],
+            }
             for model, rates in PRICING.items()
         },
     }
@@ -157,12 +174,12 @@ def session_view(session_id: str):
     )
 
 
-_SLUG_RE = re.compile(r"^[a-zA-Z0-9-]*[a-zA-Z0-9][a-zA-Z0-9-]*$")
+_SLUG_RE = re.compile(r"^[a-zA-Z0-9-]+$")
 
 
 @app.route("/memory/<project_slug>")
 def project_memory(project_slug: str):
-    if not _SLUG_RE.match(project_slug):
+    if not _SLUG_RE.match(project_slug) or not any(c.isalnum() for c in project_slug):
         return "Invalid project slug", 400
     memory = load_project_memory(project_slug)
     if not memory["count"] and not memory["index"]:
@@ -202,7 +219,9 @@ def export_sessions():
     return Response(
         json.dumps(payload, indent=2, default=str),
         mimetype="application/json",
-        headers={"Content-Disposition": f'attachment; filename="claudio-export-{filename_date}.json"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="claudio-export-{filename_date}.json"'
+        },
     )
 
 

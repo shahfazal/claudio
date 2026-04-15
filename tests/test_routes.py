@@ -65,7 +65,6 @@ def test_session_cards_are_links(client, sample_jsonl):
     assert 'href="/session/' in html
 
 
-
 # ---------------------------------------------------------------------------
 # /memory route
 # ---------------------------------------------------------------------------
@@ -84,7 +83,9 @@ def test_memory_route_invalid_slug_all_dashes(client):
 
 
 def test_memory_route_not_found(client):
-    with patch("claudio.app.load_project_memory", return_value={"count": 0, "index": None, "files": []}):
+    with patch(
+        "claudio.app.load_project_memory", return_value={"count": 0, "index": None, "files": []}
+    ):
         resp = client.get("/memory/some-valid-slug")
     assert resp.status_code == 404
 
@@ -158,5 +159,3 @@ def test_session_view_sidechain_not_in_transcript(client, tmp_path, monkeypatch)
     assert resp.status_code == 200
     assert b"normal msg" in resp.data
     assert b"SIDECHAIN SECRET" not in resp.data
-
-
