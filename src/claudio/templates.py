@@ -572,6 +572,24 @@ INDEX_TMPL = """\
     </div>
   </div>
   {% endfor %}
+  {% if failures %}
+  <div class="project-group">
+    <div class="project-header">
+      <span class="project-name" style="color:var(--muted)">Parse errors ({{ failures | length }})</span>
+    </div>
+    <div class="session-list">
+      {% for f in failures %}
+      <div class="session-card" style="opacity:0.45;cursor:default">
+        <span class="session-title" style="font-family:monospace;font-size:11px">{{ f.filename }}</span>
+        <div class="session-meta">
+          <span class="badge-msgs" style="color:#e05252">parse error</span>
+          <span class="ts" style="color:var(--muted)">{{ f.error[:80] }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <script>
@@ -893,6 +911,7 @@ STATS_TMPL = """\
   .range-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
   .chart-empty { color: var(--muted); font-size: 12px; padding: 20px 0; }
   .heat-tooltip { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--text); pointer-events: none; z-index: 1000; line-height: 1.5; opacity: 0; transition: opacity 0.1s; }
+  .chart-note { font-size: 11px; color: var(--muted); text-align: center; margin-top: -8px; margin-bottom: 14px; }
 
   @media (max-width: 700px) { .cost-grid { grid-template-columns: 1fr; } }
 </style>
@@ -902,15 +921,15 @@ STATS_TMPL = """\
   <!-- Stats cards (centered) + filter toggle -->
   <div class="stats-summary">
     <div class="stat-card">
-      <div class="stat-value">{{ total_sessions }}</div>
+      <div class="stat-value">{{ total_sessions }}{% if failure_count > 0 %}*{% endif %}</div>
       <div class="stat-label">sessions</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">{{ fmt_cost(total_cost) if total_cost else '-' }}</div>
+      <div class="stat-value">{{ fmt_cost(total_cost) if total_cost else '-' }}{% if failure_count > 0 and total_cost %}*{% endif %}</div>
       <div class="stat-label">total cost</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">{{ fmt_cost(avg_cost) if avg_cost else '-' }}</div>
+      <div class="stat-value">{{ fmt_cost(avg_cost) if avg_cost else '-' }}{% if failure_count > 0 and avg_cost %}*{% endif %}</div>
       <div class="stat-label">avg cost / session</div>
     </div>
     <div class="stat-card">
@@ -980,6 +999,9 @@ STATS_TMPL = """\
     <div id="cumulativeCostChart"></div>
   </div>
   {% endif %}
+  {% if failure_count > 0 %}
+  <p class="chart-note">* Based on {{ total_sessions }} of {{ total_loaded + failure_count }} sessions — {{ failure_count }} could not be parsed.</p>
+  {% endif %}
 
   <!-- Cost charts (2-column grid) -->
   <div class="cost-grid-wrap">
@@ -1029,8 +1051,8 @@ STATS_TMPL = """\
   var fromEl   = document.getElementById('from-date');
   var toEl     = document.getElementById('to-date');
   var applyBtn = document.getElementById('applyBtn');
-  var FROM_STR = '{{ from_str }}';
-  var TO_STR   = '{{ to_str }}';
+  var FROM_STR = {{ from_str | tojson }};
+  var TO_STR   = {{ to_str | tojson }};
 
   function isOpen() { return panel.classList.contains('is-open'); }
   function openPanel()  {

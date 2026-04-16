@@ -122,7 +122,7 @@ def _export_pricing() -> dict:
 
 @app.route("/")
 def index():
-    sessions = load_all_sessions()
+    sessions, failures = load_all_sessions()
     for s in sessions:
         s["title"] = session_title(s)
     groups = group_by_project(sessions)
@@ -131,6 +131,7 @@ def index():
         groups=groups,
         total=len(sessions),
         n_projects=len(groups),
+        failures=failures,
     )
 
 
@@ -206,7 +207,7 @@ def health_status():
 
 @app.route("/export/sessions.json")
 def export_sessions():
-    sessions = load_all_sessions()
+    sessions, failures = load_all_sessions()
     export_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     filename_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
@@ -214,9 +215,9 @@ def export_sessions():
         "claudio_version": "0.4.0",
         "export_date": export_date,
         "claude_directory": str(PROJECTS_DIR.parent),
-        "total_sessions": len(sessions),
+        "total_sessions": len(sessions) + len(failures),
         "parsed_sessions": len(sessions),
-        "failed_sessions": [],
+        "failed_sessions": [{"path": f["path"], "error": f["error"]} for f in failures],
         "sessions": [_export_session(s) for s in sessions],
         "pricing_config": _export_pricing(),
     }
@@ -232,7 +233,8 @@ def export_sessions():
 
 @app.route("/stats")
 def stats():
-    sessions = load_all_sessions()
+    sessions, failures = load_all_sessions()
+    failure_count = len(failures)
     for s in sessions:
         s["title"] = session_title(s)
 
@@ -367,11 +369,13 @@ def stats():
         payload=payload,
         ghost_payload=ghost_payload,
         total_sessions=len(filtered),
+        total_loaded=len(sessions),
         total_cost=total_cost,
         total_messages=total_messages,
         avg_cost=avg_cost,
         from_str=from_str,
         to_str=to_str,
+        failure_count=failure_count,
     )
 
 

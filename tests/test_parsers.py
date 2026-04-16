@@ -663,6 +663,38 @@ def test_parse_cache_invalidates_on_mtime_change(sample_jsonl, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# load_all_sessions: failure collection
+# ---------------------------------------------------------------------------
+
+
+def test_load_all_sessions_collects_failures(tmp_path, monkeypatch):
+    """parse errors must land in failures list, not sessions list."""
+    import claudio.parsers as parsers_module
+
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", tmp_path)
+    parsers_module._parse_cache.clear()
+
+    proj = tmp_path / "-Users-test-proj"
+    proj.mkdir()
+    bad_jf = proj / "aaaaaaaa-0000-0000-0000-000000000001.jsonl"
+    bad_jf.write_text("valid enough content\n")
+
+    def boom(path):
+        raise ValueError("corrupt file")
+
+    monkeypatch.setattr(parsers_module, "parse_session", boom)
+
+    from claudio.parsers import load_all_sessions
+
+    sessions, failures = load_all_sessions()
+    assert sessions == []
+    assert len(failures) == 1
+    assert failures[0]["filename"] == "aaaaaaaa-0000-0000-0000-000000000001.jsonl"
+    assert failures[0]["project_slug"] == "-Users-test-proj"
+    assert "corrupt file" in failures[0]["error"]
+
+
+# ---------------------------------------------------------------------------
 # sort key: numeric timestamps
 # ---------------------------------------------------------------------------
 
@@ -689,7 +721,7 @@ def test_load_all_sessions_sort_handles_numeric_timestamp(tmp_path, monkeypatch)
 
     from claudio.parsers import load_all_sessions
 
-    sessions = load_all_sessions()
+    sessions, _ = load_all_sessions()
     assert len(sessions) == 2
     # ISO (newer) should sort first
     assert sessions[0]["started_at"] == "2026-06-01T12:00:00.000Z"

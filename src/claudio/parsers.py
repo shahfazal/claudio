@@ -294,11 +294,17 @@ def parse_session(jsonl_path: Path) -> dict:
     }
 
 
-def load_all_sessions() -> list:
-    """Load metadata for every session across all projects, newest first."""
+def load_all_sessions() -> tuple[list, list]:
+    """Load metadata for every session across all projects, newest first.
+
+    Returns (sessions, failures) where failures is a list of
+    {"path": str, "filename": str, "project_slug": str, "error": str}
+    dicts for files that could not be parsed.
+    """
     sessions = []
+    failures = []
     if not PROJECTS_DIR.exists():
-        return sessions
+        return sessions, failures
     for proj_dir in sorted(PROJECTS_DIR.iterdir()):
         if not proj_dir.is_dir():
             continue
@@ -314,6 +320,14 @@ def load_all_sessions() -> list:
                 sessions.append(s)
             except Exception as exc:
                 logging.warning("Failed to parse %s: %s", jf, exc, exc_info=True)
+                failures.append(
+                    {
+                        "path": str(jf),
+                        "filename": jf.name,
+                        "project_slug": proj_dir.name,
+                        "error": str(exc),
+                    }
+                )
 
     def _sort_key(s):
         ts = s.get("started_at")
@@ -324,7 +338,7 @@ def load_all_sessions() -> list:
         return ts
 
     sessions.sort(key=_sort_key, reverse=True)
-    return sessions
+    return sessions, failures
 
 
 # ---------------------------------------------------------------------------
