@@ -92,7 +92,7 @@ def _calc_cost(model: str, usage: dict) -> float | None:
         return 0.0
     rates = PRICING.get(model)
     if rates is None:
-        # Unknown model — caller must decide how to surface this
+        # Unknown model; caller must decide how to surface this
         total_tokens = (
             usage.get("input_tokens", 0)
             + usage.get("cache_creation_input_tokens", 0)
@@ -294,11 +294,17 @@ def parse_session(jsonl_path: Path) -> dict:
     }
 
 
-def load_all_sessions() -> list:
-    """Load metadata for every session across all projects, newest first."""
+def load_all_sessions() -> tuple[list, list]:
+    """Load metadata for every session across all projects, newest first.
+
+    Returns (sessions, failures) where failures is a list of
+    {"path": str, "filename": str, "project_slug": str, "error": str}
+    dicts for files that could not be parsed.
+    """
     sessions = []
+    failures = []
     if not PROJECTS_DIR.exists():
-        return sessions
+        return sessions, failures
     for proj_dir in sorted(PROJECTS_DIR.iterdir()):
         if not proj_dir.is_dir():
             continue
@@ -314,6 +320,14 @@ def load_all_sessions() -> list:
                 sessions.append(s)
             except Exception as exc:
                 logging.warning("Failed to parse %s: %s", jf, exc, exc_info=True)
+                failures.append(
+                    {
+                        "path": str(jf),
+                        "filename": jf.name,
+                        "project_slug": proj_dir.name,
+                        "error": str(exc),
+                    }
+                )
 
     def _sort_key(s):
         ts = s.get("started_at")
@@ -324,7 +338,7 @@ def load_all_sessions() -> list:
         return ts
 
     sessions.sort(key=_sort_key, reverse=True)
-    return sessions
+    return sessions, failures
 
 
 # ---------------------------------------------------------------------------
@@ -415,13 +429,13 @@ def fmt_ts(ts) -> str:
 
 
 def session_title(s: dict) -> str:
-    # 1. Compact summary — first sentence of "Primary Request and Intent"
+    # 1. Compact summary: first sentence of "Primary Request and Intent"
     if s.get("compact_title"):
         return s["compact_title"]
-    # 2. ai-title event stored in JSONL (no API call — already local)
+    # 2. ai-title event stored in JSONL (no API call, already local)
     if s.get("ai_title"):
         return s["ai_title"]
-    # 3. Cleaned first user message — strip markdown, truncate, title-case
+    # 3. Cleaned first user message: strip markdown, truncate, title-case
     for m in s.get("messages", []):
         if m["role"] == "user" and m["text"].strip():
             t = m["text"].strip()
@@ -430,7 +444,7 @@ def session_title(s: dict) -> str:
             clean = _strip_markdown(t)
             if clean:
                 return clean[:80].title()
-    # 4. Session <date> — last resort
+    # 4. Session <date>: last resort
     date = str(s.get("started_at") or "")[:10]
     return f"Session {date}" if date else "Session"
 

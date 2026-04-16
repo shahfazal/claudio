@@ -314,7 +314,7 @@ def test_health_banner_shown_on_error(client):
             },
         },
     ):
-        with patch("claudio.app.load_all_sessions", return_value=[]):
+        with patch("claudio.app.load_all_sessions", return_value=([], [])):
             resp = client.get("/")
 
     assert b"health-banner" in resp.data
@@ -333,7 +333,7 @@ def test_health_banner_hidden_when_ok(client):
             },
         },
     ):
-        with patch("claudio.app.load_all_sessions", return_value=[]):
+        with patch("claudio.app.load_all_sessions", return_value=([], [])):
             resp = client.get("/")
 
     # id="health-banner" is only present when the banner div is rendered

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 
 def test_export_returns_json_download(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
+    with patch("claudio.app.load_all_sessions", return_value=([], [])):
         resp = client.get("/export/sessions.json")
 
     assert resp.status_code == 200
@@ -16,7 +16,7 @@ def test_export_returns_json_download(client):
 
 
 def test_export_structure(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
+    with patch("claudio.app.load_all_sessions", return_value=([], [])):
         resp = client.get("/export/sessions.json")
 
     data = json.loads(resp.data)
@@ -36,7 +36,7 @@ def test_export_session_shape(client, sample_jsonl):
     session = parse_session(sample_jsonl)
     session["project_slug"] = "-Users-test-myproject"
 
-    with patch("claudio.app.load_all_sessions", return_value=[session]):
+    with patch("claudio.app.load_all_sessions", return_value=([session], [])):
         resp = client.get("/export/sessions.json")
 
     data = json.loads(resp.data)
@@ -57,7 +57,7 @@ def test_export_session_shape(client, sample_jsonl):
 
 
 def test_export_pricing_config_present(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
+    with patch("claudio.app.load_all_sessions", return_value=([], [])):
         resp = client.get("/export/sessions.json")
 
     data = json.loads(resp.data)
@@ -71,7 +71,7 @@ def test_export_pricing_config_present(client):
 
 
 def test_export_button_in_nav(client):
-    with patch("claudio.app.load_all_sessions", return_value=[]):
+    with patch("claudio.app.load_all_sessions", return_value=([], [])):
         resp = client.get("/")
 
     html = resp.data.decode()
