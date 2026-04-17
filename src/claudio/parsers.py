@@ -326,6 +326,7 @@ def load_all_sessions() -> tuple[list, list]:
                         "filename": jf.name,
                         "project_slug": proj_dir.name,
                         "error": str(exc),
+                        "error_type": type(exc).__name__,
                     }
                 )
 

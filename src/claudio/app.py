@@ -217,7 +217,7 @@ def export_sessions():
         "claude_directory": str(PROJECTS_DIR.parent),
         "total_sessions": len(sessions) + len(failures),
         "parsed_sessions": len(sessions),
-        "failed_sessions": [{"path": f["path"], "error": f["error"]} for f in failures],
+        "failed_sessions": [{"path": f["path"], "error": f["error_type"]} for f in failures],
         "sessions": [_export_session(s) for s in sessions],
         "pricing_config": _export_pricing(),
     }
