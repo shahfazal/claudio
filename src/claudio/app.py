@@ -6,6 +6,8 @@ import os
 import re
 from datetime import date as date_type
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 
 from flask import Flask, Response, render_template, request
 from jinja2 import ChoiceLoader, DictLoader
@@ -35,6 +37,11 @@ from claudio.templates import (
     brain_icon,
     pie_icon,
 )
+
+try:
+    __version__ = _pkg_version("claudio")
+except PackageNotFoundError:
+    __version__ = "0.0.0+local"
 
 app = Flask(__name__)
 
@@ -212,7 +219,7 @@ def export_sessions():
     filename_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
     payload = {
-        "claudio_version": "0.4.0",
+        "claudio_version": __version__,
         "export_date": export_date,
         "claude_directory": str(PROJECTS_DIR.parent),
         "total_sessions": len(sessions) + len(failures),

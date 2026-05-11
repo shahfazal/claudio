@@ -1,6 +1,7 @@
 """Tests for /export/sessions.json route."""
 
 import json
+from importlib.metadata import version as _pkg_version
 from unittest.mock import patch
 
 
@@ -20,7 +21,8 @@ def test_export_structure(client):
         resp = client.get("/export/sessions.json")
 
     data = json.loads(resp.data)
-    assert data["claudio_version"] == "0.4.0"
+    # Export version must track the installed package version, not a hardcoded literal.
+    assert data["claudio_version"] == _pkg_version("claudio")
     assert "export_date" in data
     assert "claude_directory" in data
     assert data["total_sessions"] == 0
