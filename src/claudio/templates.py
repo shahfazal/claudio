@@ -129,6 +129,9 @@ BASE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Claudio{% endblock %}</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiByeD0iMyIgZmlsbD0iIzdjNmFmNyIvPjxwYXRoIGQ9Ik0xMS4yIDUuM0E0LjIgNC4yIDAgMTAxMS4yIDEwLjciIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+PC9zdmc+">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/driver.css') }}">
+<script defer src="{{ url_for('static', filename='js/driver.js.iife.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/tour.js') }}"></script>
 <script>
   // Apply saved theme + layout before render to avoid flash
   (function () {
@@ -213,6 +216,7 @@ BASE = """<!doctype html>
   .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 10px; height: 32px; min-width: 68px; display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; transition: border-color 0.15s, color 0.15s; }
   .theme-btn:hover { border-color: var(--accent); color: var(--text); }
   .theme-btn.active { border-color: var(--accent); color: var(--text); }
+  .help-btn { min-width: 32px; width: 32px; padding: 0; font-weight: 700; }
   .github-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); transition: border-color 0.15s, color 0.15s; flex-shrink: 0; }
   .github-btn:hover { border-color: var(--accent); color: var(--text); text-decoration: none; }
   .stats-btn { text-decoration: none; }
@@ -388,6 +392,26 @@ BASE = """<!doctype html>
   .modal-btn-primary:hover { opacity: 0.9; }
   .modal-btn-link { background: none; border: none; color: var(--accent2); font-size: 13px; cursor: pointer; padding: 8px 4px; }
   .modal-btn-link:hover { text-decoration: underline; }
+
+  /* ── Driver.js popover theming ──────────────────────────────── */
+  .driver-popover { background-color: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+  .driver-popover-title { color: var(--text); font: 600 14px/1.4 inherit; }
+  .driver-popover-description { color: var(--muted); font: 13px/1.55 inherit; }
+  .driver-popover-progress-text { color: var(--muted); font-size: 11px; }
+  .driver-popover-close-btn { color: var(--muted); font-size: 16px; }
+  .driver-popover-close-btn:hover, .driver-popover-close-btn:focus { color: var(--text); }
+  .driver-popover-footer button { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; padding: 4px 10px; text-shadow: none; }
+  .driver-popover-footer button:hover, .driver-popover-footer button:focus { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+  .driver-popover-footer .driver-popover-next-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .driver-popover-footer .driver-popover-next-btn:hover, .driver-popover-footer .driver-popover-next-btn:focus { background: var(--accent); border-color: var(--accent); color: #fff; opacity: 0.9; }
+  /* Recolor only the visible side per arrow direction; the other three sides
+     are kept transparent by driver.css's per-side rules. Using the shorthand
+     `border:` here would re-paint the transparent sides and turn the arrow
+     into a solid square. */
+  .driver-popover-arrow-side-left   { border-left-color:   var(--surface); }
+  .driver-popover-arrow-side-right  { border-right-color:  var(--surface); }
+  .driver-popover-arrow-side-top    { border-top-color:    var(--surface); }
+  .driver-popover-arrow-side-bottom { border-bottom-color: var(--surface); }
 </style>
 </head>
 <body>
@@ -406,6 +430,7 @@ BASE = """<!doctype html>
       <span id="theme-label">system</span>
     </button>
     <a class="theme-btn stats-btn{% if request.endpoint == 'stats' %} active{% endif %}" href="{{ url_for('stats') }}" title="Usage statistics">{{ pie_icon(13) }} stats</a>
+    <button class="theme-btn help-btn" id="help-btn" type="button" title="Replay the tour" aria-label="Replay tour">?</button>
     <a class="github-btn" href="https://github.com/shahfazal/claudio" target="_blank" rel="noopener noreferrer" title="View on GitHub">
       <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
