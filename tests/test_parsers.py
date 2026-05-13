@@ -111,9 +111,10 @@ def test_calc_cost_uses_model_pricing():
         "cache_read_input_tokens": 0,
         "output_tokens": 0,
     }
-    assert _calc_cost("claude-opus-4-5", usage) == pytest.approx(15.00)
+    assert _calc_cost("claude-opus-4-7", usage) == pytest.approx(5.00)
+    assert _calc_cost("claude-opus-4-5", usage) == pytest.approx(5.00)
     assert _calc_cost("claude-sonnet-4-6", usage) == pytest.approx(3.00)
-    assert _calc_cost("claude-haiku-4-5-20251001", usage) == pytest.approx(0.80)
+    assert _calc_cost("claude-haiku-4-5-20251001", usage) == pytest.approx(1.00)
     assert _calc_cost("claude-unknown-model", usage) is None  # unknown model with tokens → None
 
 
