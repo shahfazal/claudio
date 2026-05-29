@@ -21,16 +21,20 @@ def check_claude_directory(claude_dir: Path | None = None) -> dict:
             "ok": False,
             "message": f"{claude_dir} not found",
             "missing": [str(claude_dir)],
+            "optional_missing": [],
         }
 
-    expected = ["projects", "history.jsonl", "todos"]
-    missing = [name for name in expected if not (claude_dir / name).exists()]
+    required = ["projects", "history.jsonl"]
+    optional = ["todos"]
+    missing = [name for name in required if not (claude_dir / name).exists()]
+    optional_missing = [name for name in optional if not (claude_dir / name).exists()]
 
     if missing:
         return {
             "ok": False,
             "message": f"Missing: {', '.join(missing)}",
             "missing": missing,
+            "optional_missing": optional_missing,
         }
 
     projects_dir = claude_dir / "projects"
@@ -43,6 +47,7 @@ def check_claude_directory(claude_dir: Path | None = None) -> dict:
         "ok": True,
         "message": f"Found {claude_dir} ({project_count} projects)",
         "missing": [],
+        "optional_missing": optional_missing,
     }
 
 

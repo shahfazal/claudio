@@ -26,6 +26,7 @@ def test_claude_dir_ok(tmp_path):
 
     assert result["ok"] is True
     assert result["missing"] == []
+    assert result["optional_missing"] == []
 
 
 def test_claude_dir_missing_root(tmp_path):
@@ -35,17 +36,35 @@ def test_claude_dir_missing_root(tmp_path):
     assert result["missing"]
 
 
-def test_claude_dir_missing_subdirs(tmp_path):
+def test_claude_dir_missing_required_subdirs(tmp_path):
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir()
-    # Only create projects/, omit history.jsonl and todos/
+    # Omit history.jsonl (required).
     (claude_dir / "projects").mkdir()
 
     result = check_claude_directory(claude_dir)
 
     assert result["ok"] is False
-    assert "history.jsonl" in result["missing"]
-    assert "todos" in result["missing"]
+    assert result["missing"] == ["history.jsonl"]
+
+
+def test_claude_dir_todos_absent_is_ok(tmp_path):
+    """todos/ is a legacy directory swept by current Claude Code versions.
+
+    Its absence must NOT fail the health check, but should surface in
+    optional_missing for diagnostics.
+    """
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    (claude_dir / "projects").mkdir()
+    (claude_dir / "history.jsonl").touch()
+    # Deliberately no todos/.
+
+    result = check_claude_directory(claude_dir)
+
+    assert result["ok"] is True
+    assert result["missing"] == []
+    assert result["optional_missing"] == ["todos"]
 
 
 def test_claude_dir_counts_projects(tmp_path):
@@ -56,12 +75,11 @@ def test_claude_dir_counts_projects(tmp_path):
     (projects / "-Users-test-proj1").mkdir()
     (projects / "-Users-test-proj2").mkdir()
     (claude_dir / "history.jsonl").touch()
-    (claude_dir / "todos").mkdir()
 
     result = check_claude_directory(claude_dir)
 
     assert result["ok"] is True
-    assert "2 projects" in result["message"]
+    assert result["message"] == f"Found {claude_dir} (2 projects)"
 
 
 # ---------------------------------------------------------------------------
