@@ -272,6 +272,11 @@ def test_health_route_renders(client):
                     "last_updated": None,
                     "days_old": None,
                 },
+                "retention": {
+                    "ok": True,
+                    "message": "Retention baseline seeded (first run)",
+                    "signals": [],
+                },
             },
         },
     ):
@@ -305,6 +310,11 @@ def test_health_route_shows_error(client):
                     "last_updated": None,
                     "days_old": None,
                 },
+                "retention": {
+                    "ok": True,
+                    "message": "Retention baseline seeded (first run)",
+                    "signals": [],
+                },
             },
         },
     ):
@@ -337,6 +347,33 @@ def test_health_banner_shown_on_error(client):
 
     assert b"health-banner" in resp.data
     assert b"not found" in resp.data
+
+
+def test_retention_warning_renders_on_health_page(client):
+    with patch(
+        "claudio.app.check_environment",
+        return_value={
+            "status": "warning",
+            "checks": {
+                "claude_dir": {"ok": True, "message": "All good", "missing": []},
+                "schema": {"ok": True, "message": "Schema OK", "parsed_count": 1, "total_count": 1},
+                "pricing": {"ok": True, "message": "Fresh", "last_updated": None, "days_old": None},
+                "retention": {
+                    "ok": False,
+                    "message": "8 session(s) appear to have disappeared from disk.",
+                    "signals": ["sweep"],
+                    "fix": "Set cleanupPeriodDays to a large value (e.g. 3650).",
+                    "note": "Claudio cannot recover sessions already deleted from disk.",
+                },
+            },
+        },
+    ):
+        resp = client.get("/health")
+
+    assert resp.status_code == 200
+    assert b"8 session(s) appear to have disappeared" in resp.data
+    assert b"Set cleanupPeriodDays to a large value" in resp.data
+    assert b"cannot recover sessions already deleted" in resp.data
 
 
 def test_health_banner_hidden_when_ok(client):

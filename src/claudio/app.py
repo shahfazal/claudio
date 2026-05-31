@@ -26,6 +26,7 @@ from claudio.parsers import (
     session_title,
     strip_home,
 )
+from claudio.retention import detect_on_startup
 from claudio.templates import (
     BASE,
     HEALTH_TMPL,
@@ -397,5 +398,6 @@ def main():
     debug = os.environ.get("DEBUG", "").lower() in ("1", "true")
     if not debug:
         logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    detect_on_startup()
     print(f"\n  claudio → http://{host}:{port}\n")
     app.run(host=host, port=port, debug=debug)

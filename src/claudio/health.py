@@ -164,6 +164,21 @@ def check_pricing_freshness(pricing_path: Path | None = None) -> dict:
     }
 
 
+def check_retention() -> dict:
+    """Surface the startup retention-sweep detection result for the banner.
+
+    Read-only: the detection itself runs once at startup (see
+    ``claudio.retention.detect_on_startup``). If it has not run (e.g. under
+    ``flask run`` or in tests), this reports a neutral ok and writes nothing.
+    """
+    from claudio.retention import startup_result
+
+    result = startup_result()
+    if result is None:
+        return {"ok": True, "message": "Retention check not run", "signals": []}
+    return result
+
+
 def check_environment(
     claude_dir: Path | None = None,
     projects_dir: Path | None = None,
@@ -180,11 +195,12 @@ def check_environment(
         "claude_dir": check_claude_directory(claude_dir),
         "schema": check_session_schema(projects_dir),
         "pricing": check_pricing_freshness(pricing_path),
+        "retention": check_retention(),
     }
 
     if not checks["claude_dir"]["ok"] or not checks["schema"]["ok"]:
         status = "error"
-    elif not checks["pricing"]["ok"]:
+    elif not checks["pricing"]["ok"] or not checks["retention"]["ok"]:
         status = "warning"
     else:
         status = "ok"
