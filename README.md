@@ -47,7 +47,7 @@ Open `http://127.0.0.1:5001`. That's it — `uv` creates a venv and installs dep
 ## Development
 
 ```bash
-uv run python -m pytest       # 107 tests across parsers, routes, templates, health, export, pricing
+uv run python -m pytest       # tests across parsers, routes, templates, health, retention, export, pricing
 uv run python -m ruff check . # lint
 uv run python -m ruff format . # format
 ```
@@ -89,6 +89,37 @@ A few caveats:
 - Sessions that used a model not in the pricing table show `≈ ?` rather than a potentially wrong number.
 
 Close enough to be useful for understanding relative session cost, but not a billing figure.
+
+## Historical data depth
+
+Claudio reads your session transcripts from `~/.claude/projects/`. Those files
+are subject to Claude Code's own retention sweep, controlled by
+`cleanupPeriodDays` in `~/.claude/settings.json` (default: 30 days).
+
+Starting with Claude Code v2.1.117 (shipped right after v2.1.116 on April 20,
+2026), this sweep runs on startup: session files older than `cleanupPeriodDays`
+are deleted every time `claude` launches. Earlier versions largely let session
+files accumulate, so if you used Claude Code before that release you may have
+seen deeper history than you do now.
+
+What this means for Claudio: with the default config, your stats only reach back
+30 days. Anything older has already been removed from disk by Claude Code, and
+Claudio cannot recover what is no longer there.
+
+To keep a longer window, raise the retention period before your next launch:
+
+```json
+// ~/.claude/settings.json
+{ "cleanupPeriodDays": 3650 }
+```
+
+Do not set it to `0`. The docs imply `0` disables cleanup, but it currently
+disables transcript persistence entirely, so you lose everything.
+
+For analytics that survive the sweep regardless of this setting, export
+regularly with Claudio's [JSON export](#️-stability--compatibility) (the
+**Export** button in the nav bar). Snapshots persist even after the underlying
+session files are gone.
 
 ## Contributing
 
@@ -132,12 +163,15 @@ This is a **hobby project**, not production software. Enjoy it while it works.
 
 ## Changelog
 
-| Version | Commit  | Feature                                             |
-| ------- | ------- | --------------------------------------------------- |
-| v0.4.0  | ---     | Resilience: health checks, export, external pricing |
-| v0.3.0  | b9a60e0 | Compaction count                                    |
-| v0.2.0  | c7ef66d | Memory browser                                      |
-| v0.1.0  | b2bd054 | Initial release                                     |
+| Version | Commit  | Feature                                                       |
+| ------- | ------- | ------------------------------------------------------------- |
+| v0.6.1  | ---     | Retention-sweep detector (detection-only; durable archival lands next minor) |
+| v0.6.0  | d5e750f | Driver.js help tour; package version read at runtime          |
+| v0.5.0  | addb62c | Stats dashboard: heatmap, filter panel, cumulative cost chart |
+| v0.4.0  | ac3917c | Resilience: health checks, export, external pricing           |
+| v0.3.0  | b9a60e0 | Compaction count                                              |
+| v0.2.0  | c7ef66d | Memory browser                                                |
+| v0.1.0  | b2bd054 | Initial release                                               |
 
 ## Disclaimer
 

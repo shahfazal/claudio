@@ -846,6 +846,19 @@ HEALTH_TMPL = """\
     {% endif %}
   </div>
 
+  {% set check = health.checks.retention %}
+  <div class="health-card">
+    <div class="health-card-header">
+      <span class="health-status-{{ 'ok' if check.ok else 'warning' }}">{{ '✓' if check.ok else '⚠' }}</span>
+      <span class="health-check-label">Session Retention</span>
+    </div>
+    <div class="health-check-msg">{{ check.message }}</div>
+    {% if not check.ok %}
+    <div class="health-check-detail">{{ check.fix }}</div>
+    <div class="health-check-detail">{{ check.note }}</div>
+    {% endif %}
+  </div>
+
   <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
     <a href="https://github.com/shahfazal/claudio/issues" target="_blank" rel="noopener noreferrer"
        style="font-size:12px;color:var(--accent2)">Report compatibility issue →</a>
