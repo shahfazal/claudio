@@ -169,7 +169,12 @@ def _sync_memory_dir(proj_dir, store_projects_dir, mem_index, now_iso, summary):
             continue
         entry = mem_index.get(key)
         dst = store_projects_dir / proj_dir.name / "memory" / mf.name
-        if entry is not None and dst.exists() and size == entry.get("size") and mtime == entry.get("mtime"):
+        if (
+            entry is not None
+            and dst.exists()
+            and size == entry.get("size")
+            and mtime == entry.get("mtime")
+        ):
             continue
         try:
             _atomic_copy(mf, dst)
@@ -297,9 +302,7 @@ def sync(
                         entry["last_synced"] = now_iso
                         summary["skipped"] += 1
 
-                _sync_memory_dir(
-                    proj_dir, store_projects_dir, index["memory"], now_iso, summary
-                )
+                _sync_memory_dir(proj_dir, store_projects_dir, index["memory"], now_iso, summary)
 
         # Index entries not seen on disk this run are swept (gone from live).
         # Mark them cold but keep the archived copy. gzip of cold sessions is a

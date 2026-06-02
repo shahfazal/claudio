@@ -50,6 +50,7 @@ def _session_files(proj_dir: Path) -> list[Path]:
         by_id[_session_id_from_path(f)] = f
     return list(by_id.values())
 
+
 _STRIP_TAG_RE = re.compile(r"<([a-z][a-z_-]*)>.*?</\1>", re.DOTALL | re.IGNORECASE)
 
 # Per-file parse cache: path -> (mtime, parsed_session).
