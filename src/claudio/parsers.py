@@ -1,5 +1,6 @@
 """Data loading and parsing for Claude Code session files."""
 
+import gzip
 import json
 import logging
 import re
@@ -7,10 +8,48 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
+from claudio.store import STORE_PROJECTS_DIR
+
 CLAUDE_DIR = Path.home() / ".claude"
-PROJECTS_DIR = CLAUDE_DIR / "projects"
+PROJECTS_DIR = CLAUDE_DIR / "projects"  # Claude Code's live tree (the sync source)
 HISTORY_FILE = CLAUDE_DIR / "history.jsonl"
 TODOS_DIR = CLAUDE_DIR / "todos"
+
+
+def sessions_root() -> Path:
+    """Directory stats and transcripts are read from.
+
+    The durable store once it holds content (a superset of the live tree after
+    a sync), else the live tree itself: before the first sync, under
+    ``flask run`` without ``main()``, or in tests.
+    """
+    try:
+        if STORE_PROJECTS_DIR.exists() and any(STORE_PROJECTS_DIR.iterdir()):
+            return STORE_PROJECTS_DIR
+    except OSError:
+        pass
+    return PROJECTS_DIR
+
+
+def _session_id_from_path(path: Path) -> str:
+    """Session id from a path, handling both .jsonl and .jsonl.gz."""
+    name = path.name
+    for suffix in (".jsonl.gz", ".jsonl"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
+
+
+def _session_files(proj_dir: Path) -> list[Path]:
+    """Session files in a project dir. Prefers the uncompressed copy when both
+    a .jsonl and a .jsonl.gz exist for the same session."""
+    by_id: dict[str, Path] = {}
+    for f in proj_dir.glob("*.jsonl.gz"):
+        by_id[_session_id_from_path(f)] = f
+    for f in proj_dir.glob("*.jsonl"):  # plain copy overrides a .gz of the same id
+        by_id[_session_id_from_path(f)] = f
+    return list(by_id.values())
+
 
 _STRIP_TAG_RE = re.compile(r"<([a-z][a-z_-]*)>.*?</\1>", re.DOTALL | re.IGNORECASE)
 
@@ -194,7 +233,7 @@ def _extract_compact_title(text: str) -> str | None:
 
 def parse_session(jsonl_path: Path) -> dict:
     """Parse a single session JSONL file into a structured dict."""
-    session_id = jsonl_path.stem
+    session_id = _session_id_from_path(jsonl_path)
     messages = []
     compact_title = None
     ai_title = None
@@ -207,7 +246,8 @@ def parse_session(jsonl_path: Path) -> dict:
     cost_unknown = False  # True if any message used an unpriced model with tokens
     compact_count = 0
 
-    with open(jsonl_path, encoding="utf-8", errors="replace") as fh:
+    opener = gzip.open if jsonl_path.name.endswith(".gz") else open
+    with opener(jsonl_path, "rt", encoding="utf-8", errors="replace") as fh:
         for raw in fh:
             raw = raw.strip()
             if not raw:
@@ -303,12 +343,13 @@ def load_all_sessions() -> tuple[list, list]:
     """
     sessions = []
     failures = []
-    if not PROJECTS_DIR.exists():
+    root = sessions_root()
+    if not root.exists():
         return sessions, failures
-    for proj_dir in sorted(PROJECTS_DIR.iterdir()):
+    for proj_dir in sorted(root.iterdir()):
         if not proj_dir.is_dir():
             continue
-        for jf in sorted(proj_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True):
+        for jf in sorted(_session_files(proj_dir), key=lambda f: f.stat().st_mtime, reverse=True):
             try:
                 mtime = jf.stat().st_mtime
                 if jf in _parse_cache and _parse_cache[jf][0] == mtime:
@@ -481,8 +522,9 @@ def group_by_project(sessions: list) -> list:
             }
         groups[slug]["sessions"].append(s)
 
+    root = sessions_root()
     for slug, group in groups.items():
-        memory_dir = PROJECTS_DIR / slug / "memory"
+        memory_dir = root / slug / "memory"
         if memory_dir.exists():
             group["memory_count"] = sum(
                 1 for f in memory_dir.iterdir() if f.suffix == ".md" and f.name != "MEMORY.md"
@@ -524,7 +566,7 @@ def load_project_memory(project_slug: str) -> dict:
     Returns {"count": int, "index": str|None, "files": [...]}.
     Each file dict: filename, name, description, type, body.
     """
-    memory_dir = PROJECTS_DIR / project_slug / "memory"
+    memory_dir = sessions_root() / project_slug / "memory"
     if not memory_dir.exists():
         return {"count": 0, "index": None, "files": []}
 

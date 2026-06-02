@@ -345,3 +345,56 @@ def test_sync_on_startup_locked_out_returns_summary(tmp_path, monkeypatch):
         summary = store_mod.sync_on_startup()
     assert summary["locked_out"] is True
     assert summary["copied"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Memory mirroring
+# ---------------------------------------------------------------------------
+
+
+def _make_memory(live_projects_dir, slug, files):
+    d = live_projects_dir / slug / "memory"
+    d.mkdir(parents=True, exist_ok=True)
+    for name, content in files.items():
+        (d / name).write_text(content, encoding="utf-8")
+
+
+def test_memory_files_mirrored_into_store(tmp_path):
+    p = _paths(tmp_path)
+    _make_live(p["live_projects_dir"], {"proj-alpha": {"s1.jsonl": '{"a":1}\n'}})
+    _make_memory(
+        p["live_projects_dir"], "proj-alpha", {"MEMORY.md": "# index", "note.md": "a note"}
+    )
+
+    summary = sync(**p)
+    assert summary["memory_synced"] == 2
+    dst = p["store_projects_dir"] / "proj-alpha" / "memory"
+    assert dst.joinpath("note.md").read_text(encoding="utf-8") == "a note"
+    assert dst.joinpath("MEMORY.md").read_text(encoding="utf-8") == "# index"
+
+    index = read_index(p["index_path"])
+    assert "proj-alpha/memory/note.md" in index["memory"]
+
+
+def test_memory_sync_idempotent(tmp_path):
+    p = _paths(tmp_path)
+    _make_live(p["live_projects_dir"], {"proj-alpha": {"s1.jsonl": '{"a":1}\n'}})
+    _make_memory(p["live_projects_dir"], "proj-alpha", {"note.md": "a note"})
+    sync(**p)
+
+    second = sync(**{**p, "now": datetime(2026, 6, 2, tzinfo=timezone.utc)})
+    assert second["memory_synced"] == 0
+
+
+def test_memory_recopies_on_change(tmp_path):
+    p = _paths(tmp_path)
+    note = p["live_projects_dir"] / "proj-alpha" / "memory" / "note.md"
+    _make_live(p["live_projects_dir"], {"proj-alpha": {"s1.jsonl": '{"a":1}\n'}})
+    _make_memory(p["live_projects_dir"], "proj-alpha", {"note.md": "original"})
+    sync(**p)
+
+    note.write_text("edited and longer", encoding="utf-8")
+    summary = sync(**{**p, "now": datetime(2026, 6, 2, tzinfo=timezone.utc)})
+    assert summary["memory_synced"] == 1
+    dst = p["store_projects_dir"] / "proj-alpha" / "memory" / "note.md"
+    assert dst.read_text(encoding="utf-8") == "edited and longer"

@@ -82,14 +82,17 @@ def read_index(path=None):
     """Return the stored index dict, or a fresh empty one if missing/corrupt."""
     if path is None:
         path = INDEX_PATH
+    empty = {"schema_version": INDEX_SCHEMA_VERSION, "sessions": {}, "memory": {}}
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
-        return {"schema_version": INDEX_SCHEMA_VERSION, "sessions": {}}
+        return empty
     if not isinstance(data, dict) or data.get("schema_version") != INDEX_SCHEMA_VERSION:
-        return {"schema_version": INDEX_SCHEMA_VERSION, "sessions": {}}
+        return empty
     if not isinstance(data.get("sessions"), dict):
         data["sessions"] = {}
+    if not isinstance(data.get("memory"), dict):
+        data["memory"] = {}
     return data
 
 
@@ -147,6 +150,41 @@ def _stat(path):
     return st.st_size, st.st_mtime
 
 
+def _sync_memory_dir(proj_dir, store_projects_dir, mem_index, now_iso, summary):
+    """Mirror a project's memory/*.md files into the store.
+
+    Memory files are not append-only (they are edited), so any size or mtime
+    change re-copies. Vanished memory files are left in the store (durable);
+    they are never deleted.
+    """
+    mem_src = proj_dir / "memory"
+    if not mem_src.exists():
+        return
+    for mf in sorted(mem_src.glob("*.md")):
+        key = f"{proj_dir.name}/memory/{mf.name}"
+        try:
+            size, mtime = _stat(mf)
+        except OSError as exc:
+            summary["anomalies"].append({"key": key, "reason": f"stat failed: {exc}"})
+            continue
+        entry = mem_index.get(key)
+        dst = store_projects_dir / proj_dir.name / "memory" / mf.name
+        if (
+            entry is not None
+            and dst.exists()
+            and size == entry.get("size")
+            and mtime == entry.get("mtime")
+        ):
+            continue
+        try:
+            _atomic_copy(mf, dst)
+        except OSError as exc:
+            summary["anomalies"].append({"key": key, "reason": f"copy failed: {exc}"})
+            continue
+        mem_index[key] = {"size": size, "mtime": mtime, "last_synced": now_iso}
+        summary["memory_synced"] += 1
+
+
 def sync(
     live_projects_dir=None,
     store_projects_dir=None,
@@ -179,6 +217,7 @@ def sync(
         "updated": 0,
         "skipped": 0,
         "swept": 0,
+        "memory_synced": 0,
         "anomalies": [],
         "live_count": 0,
         "stored_count": 0,
@@ -263,6 +302,8 @@ def sync(
                         entry["last_synced"] = now_iso
                         summary["skipped"] += 1
 
+                _sync_memory_dir(proj_dir, store_projects_dir, index["memory"], now_iso, summary)
+
         # Index entries not seen on disk this run are swept (gone from live).
         # Mark them cold but keep the archived copy. gzip of cold sessions is a
         # later PR (it needs the parser to read .jsonl.gz).
@@ -295,11 +336,12 @@ def sync_on_startup():
         return summary
 
     logging.info(
-        "Store sync: %d copied, %d updated, %d skipped, %d swept (%d in store).",
+        "Store sync: %d copied, %d updated, %d skipped, %d swept, %d memory (%d in store).",
         summary["copied"],
         summary["updated"],
         summary["skipped"],
         summary["swept"],
+        summary["memory_synced"],
         summary["stored_count"],
     )
     for anomaly in summary["anomalies"]:
