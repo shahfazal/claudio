@@ -844,3 +844,41 @@ def test_parse_session_reads_gzip(tmp_path):
     s = parse_session(p)
     assert s["session_id"] == "ffffffff-0000-0000-0000-000000000009"
     assert any("cold archived text" in m["text"] for m in s["messages"])
+
+
+# ---------------------------------------------------------------------------
+# fmt_bytes + archive_only annotation
+# ---------------------------------------------------------------------------
+
+
+def test_fmt_bytes():
+    from claudio.parsers import fmt_bytes
+
+    assert fmt_bytes(0) == "0 B"
+    assert fmt_bytes(512) == "512 B"
+    assert fmt_bytes(1536) == "1.5 KB"
+    assert fmt_bytes(5 * 1024 * 1024) == "5.0 MB"
+    assert fmt_bytes(None) == "0 B"
+
+
+def test_load_all_sessions_flags_archive_only(tmp_path, monkeypatch):
+    import claudio.parsers as pm
+
+    store = tmp_path / "store"
+    proj = store / "projects" / "-proj"
+    proj.mkdir(parents=True)
+    sid = "aaaabbbb-0000-0000-0000-000000000001"
+    (proj / f"{sid}.jsonl").write_text(_MIN_SESSION % "archived one")
+    (store / "index.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "sessions": {f"-proj/{sid}.jsonl": {"live": False}},
+                "memory": {},
+            }
+        )
+    )
+    monkeypatch.setattr(pm, "STORE_PROJECTS_DIR", store / "projects")
+
+    sessions, _ = pm.load_all_sessions()
+    assert sessions[0]["archive_only"] is True

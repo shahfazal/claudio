@@ -274,8 +274,13 @@ def test_health_route_renders(client):
                 },
                 "retention": {
                     "ok": True,
-                    "message": "Retention baseline seeded (first run)",
-                    "signals": [],
+                    "message": "Live history and archive are in sync (5 session(s)); nothing swept.",
+                    "archived_count": 5,
+                    "live_count": 5,
+                    "archive_only_count": 0,
+                    "memory_count": 2,
+                    "store_bytes": 12345,
+                    "last_sync_at": "2026-06-02T00:00:00+00:00",
                 },
             },
         },
@@ -312,8 +317,13 @@ def test_health_route_shows_error(client):
                 },
                 "retention": {
                     "ok": True,
-                    "message": "Retention baseline seeded (first run)",
-                    "signals": [],
+                    "message": "Live history and archive are in sync (5 session(s)); nothing swept.",
+                    "archived_count": 5,
+                    "live_count": 5,
+                    "archive_only_count": 0,
+                    "memory_count": 2,
+                    "store_bytes": 12345,
+                    "last_sync_at": "2026-06-02T00:00:00+00:00",
                 },
             },
         },
@@ -360,10 +370,15 @@ def test_retention_warning_renders_on_health_page(client):
                 "pricing": {"ok": True, "message": "Fresh", "last_updated": None, "days_old": None},
                 "retention": {
                     "ok": False,
-                    "message": "8 session(s) appear to have disappeared from disk.",
-                    "signals": ["sweep"],
+                    "message": "1 of 3 archived session(s) vanished from disk sooner than expected.",
+                    "archived_count": 10,
+                    "live_count": 7,
+                    "archive_only_count": 3,
+                    "memory_count": 4,
+                    "store_bytes": 999999,
+                    "last_sync_at": "2026-06-02T00:00:00+00:00",
                     "fix": "Set cleanupPeriodDays to a large value (e.g. 3650).",
-                    "note": "Claudio cannot recover sessions already deleted from disk.",
+                    "note": "Claudio cannot recover sessions deleted before they were mirrored.",
                 },
             },
         },
@@ -371,9 +386,11 @@ def test_retention_warning_renders_on_health_page(client):
         resp = client.get("/health")
 
     assert resp.status_code == 200
-    assert b"8 session(s) appear to have disappeared" in resp.data
+    assert b"vanished from disk sooner than expected" in resp.data
     assert b"Set cleanupPeriodDays to a large value" in resp.data
-    assert b"cannot recover sessions already deleted" in resp.data
+    assert b"cannot recover sessions deleted before they were mirrored" in resp.data
+    # Archive stats render on the card
+    assert b"Archive-only" in resp.data
 
 
 def test_health_banner_hidden_when_ok(client):

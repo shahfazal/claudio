@@ -422,3 +422,22 @@ def test_session_view_serves_gzipped_session(client, tmp_path, monkeypatch):
     resp = client.get(f"/session/{sid}")
     assert resp.status_code == 200
     assert b"cold session transcript" in resp.data
+
+
+def test_index_shows_archive_only_badge(client, sample_jsonl):
+    session = parse_session(sample_jsonl)
+    session["project_slug"] = "-Users-test-myproject"
+    session["archive_only"] = True
+    with patch("claudio.app.load_all_sessions", return_value=([session], [])):
+        resp = client.get("/")
+    assert b"badge-archive" in resp.data
+    assert b">archived<" in resp.data
+
+
+def test_session_view_shows_archive_badge(client, sample_jsonl, monkeypatch):
+    import claudio.parsers as parsers_module
+
+    monkeypatch.setattr(parsers_module, "PROJECTS_DIR", sample_jsonl.parent.parent)
+    with patch("claudio.app.is_archive_only", return_value=True):
+        resp = client.get("/session/aaaabbbb-0000-0000-0000-000000000001")
+    assert b"badge-archive" in resp.data

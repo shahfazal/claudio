@@ -165,6 +165,7 @@ This is a **hobby project**, not production software. Enjoy it while it works.
 
 | Version | Commit  | Feature                                                       |
 | ------- | ------- | ------------------------------------------------------------- |
+| v0.7.0  | ---     | Durable session store: live→store mirror, archive-backed stats & memory, calibrated retention detector |
 | v0.6.1  | ---     | Retention-sweep detector (detection-only; durable archival lands next minor) |
 | v0.6.0  | d5e750f | Driver.js help tour; package version read at runtime          |
 | v0.5.0  | addb62c | Stats dashboard: heatmap, filter panel, cumulative cost chart |

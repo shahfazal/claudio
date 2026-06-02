@@ -8,7 +8,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from claudio.store import STORE_PROJECTS_DIR
+from claudio.store import STORE_PROJECTS_DIR, read_index
 
 CLAUDE_DIR = Path.home() / ".claude"
 PROJECTS_DIR = CLAUDE_DIR / "projects"  # Claude Code's live tree (the sync source)
@@ -49,6 +49,19 @@ def _session_files(proj_dir: Path) -> list[Path]:
     for f in proj_dir.glob("*.jsonl"):  # plain copy overrides a .gz of the same id
         by_id[_session_id_from_path(f)] = f
     return list(by_id.values())
+
+
+def _store_index_sessions() -> dict:
+    """Store-index session entries, or {} when not reading from the store."""
+    if sessions_root() != STORE_PROJECTS_DIR:
+        return {}
+    return read_index(STORE_PROJECTS_DIR.parent / "index.json").get("sessions", {})
+
+
+def is_archive_only(jsonl_path: Path) -> bool:
+    """True if this session is served from the store but gone from the live tree."""
+    key = f"{jsonl_path.parent.name}/{_session_id_from_path(jsonl_path)}.jsonl"
+    return not _store_index_sessions().get(key, {}).get("live", True)
 
 
 _STRIP_TAG_RE = re.compile(r"<([a-z][a-z_-]*)>.*?</\1>", re.DOTALL | re.IGNORECASE)
@@ -346,6 +359,7 @@ def load_all_sessions() -> tuple[list, list]:
     root = sessions_root()
     if not root.exists():
         return sessions, failures
+    index_sessions = _store_index_sessions()
     for proj_dir in sorted(root.iterdir()):
         if not proj_dir.is_dir():
             continue
@@ -358,6 +372,8 @@ def load_all_sessions() -> tuple[list, list]:
                     s = parse_session(jf)
                     _parse_cache[jf] = (mtime, s)
                 s["project_slug"] = proj_dir.name
+                key = f"{proj_dir.name}/{_session_id_from_path(jf)}.jsonl"
+                s["archive_only"] = not index_sessions.get(key, {}).get("live", True)
                 sessions.append(s)
             except Exception as exc:
                 logging.warning("Failed to parse %s: %s", jf, exc, exc_info=True)
@@ -446,6 +462,21 @@ def load_todos() -> dict:
 # ---------------------------------------------------------------------------
 # Display helpers
 # ---------------------------------------------------------------------------
+
+
+def fmt_bytes(n) -> str:
+    """Human-readable byte size: 0 B, 12 KB, 3.4 MB, 1.2 GB."""
+    try:
+        size = float(n)
+    except (TypeError, ValueError):
+        return "0 B"
+    if size < 1024:
+        return f"{size:.0f} B"
+    for unit in ("KB", "MB", "GB"):
+        size /= 1024
+        if size < 1024 or unit == "GB":
+            return f"{size:.1f} {unit}"
+    return f"{size:.1f} GB"
 
 
 def fmt_cost(cost) -> str:
