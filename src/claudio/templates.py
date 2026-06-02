@@ -237,6 +237,7 @@ BASE = """<!doctype html>
   .badge-cost { background: var(--surface2); border-radius: 4px; padding: 2px 7px; font-size: 11px; color: var(--green); font-variant-numeric: tabular-nums; }
   .badge-mem { font-size: 11px; color: var(--accent); text-decoration: none; }
   .badge-mem:hover { text-decoration: none; }
+  .badge-archive { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; color: var(--accent2); text-transform: uppercase; }
   .badge-compact { font-size: 11px; color: var(--muted); }
   .ts { font-size: 11px; color: var(--muted); }
 
@@ -374,6 +375,10 @@ BASE = """<!doctype html>
   .health-check-label { font-size: 13px; font-weight: 600; }
   .health-check-msg { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .health-check-detail { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: monospace; }
+  .archive-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 16px; margin-top: 10px; }
+  .archive-stats div { display: flex; flex-direction: column; gap: 1px; }
+  .archive-stats dt { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .archive-stats dd { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
   .health-overall { display: inline-block; padding: 3px 10px; border-radius: 5px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 20px; }
   .health-overall-ok      { background: rgba(74,222,128,0.15); color: var(--green); }
   .health-overall-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
@@ -586,6 +591,7 @@ INDEX_TMPL = """\
          data-raw-title="{{ s.title }}">
         <span class="session-title">{{ s.title }}</span>
         <div class="session-meta">
+          {% if s.archive_only %}<span class="badge-archive" title="Swept from disk by Claude Code; served from your archive">archived</span>{% endif %}
           <span class="badge-msgs">{{ s.message_count }} msg{{ 's' if s.message_count != 1 }}</span>
           {% if s.cost_unknown %}<span class="badge-cost" style="color:var(--muted)">≈ ?</span>
           {% elif s.cost_usd %}<span class="badge-cost">{{ fmt_cost(s.cost_usd) }}</span>{% endif %}
@@ -684,6 +690,7 @@ SESSION_TMPL = """\
 <div class="session-hdr">
   <h1>{{ title }}</h1>
   <div class="session-hdr-meta">
+    {% if session.archive_only %}<span class="badge-archive" title="Swept from disk by Claude Code; served from your archive">archived</span>{% endif %}
     {% if session.cwd %}<span>📁 <span class="copy-path" data-path="{{ session.cwd }}" title="Click to copy full path">{{ strip_home(session.cwd) }}</span></span>{% endif %}
     <span>🕐 {{ fmt_ts(session.started_at) }}
       {%- if session.ended_at and session.ended_at != session.started_at %} → {{ fmt_ts(session.ended_at) }}{% endif %}
@@ -850,9 +857,17 @@ HEALTH_TMPL = """\
   <div class="health-card">
     <div class="health-card-header">
       <span class="health-status-{{ 'ok' if check.ok else 'warning' }}">{{ '✓' if check.ok else '⚠' }}</span>
-      <span class="health-check-label">Session Retention</span>
+      <span class="health-check-label">Session Archive</span>
     </div>
     <div class="health-check-msg">{{ check.message }}</div>
+    <dl class="archive-stats">
+      <div><dt>Archived</dt><dd>{{ check.archived_count }}</dd></div>
+      <div><dt>Live on disk</dt><dd>{{ check.live_count }}</dd></div>
+      <div><dt>Archive-only</dt><dd>{{ check.archive_only_count }}</dd></div>
+      <div><dt>Memory files</dt><dd>{{ check.memory_count }}</dd></div>
+      <div><dt>Store size</dt><dd>{{ fmt_bytes(check.store_bytes) }}</dd></div>
+      <div><dt>Last sync</dt><dd>{{ fmt_ts(check.last_sync_at) if check.last_sync_at else 'never' }}</dd></div>
+    </dl>
     {% if not check.ok %}
     <div class="health-check-detail">{{ check.fix }}</div>
     <div class="health-check-detail">{{ check.note }}</div>

@@ -398,3 +398,39 @@ def test_memory_recopies_on_change(tmp_path):
     assert summary["memory_synced"] == 1
     dst = p["store_projects_dir"] / "proj-alpha" / "memory" / "note.md"
     assert dst.read_text(encoding="utf-8") == "edited and longer"
+
+
+def test_revived_session_clears_swept_at(tmp_path):
+    p = _paths(tmp_path)
+    _make_live(p["live_projects_dir"], {"proj-alpha": {"s1.jsonl": '{"a":1}\n'}})
+    sync(**p)
+
+    # Sweep it, then confirm it is marked cold with a swept_at stamp.
+    (p["live_projects_dir"] / "proj-alpha" / "s1.jsonl").unlink()
+    sync(**{**p, "now": datetime(2026, 6, 1, tzinfo=timezone.utc)})
+    entry = read_index(p["index_path"])["sessions"]["proj-alpha/s1.jsonl"]
+    assert entry["live"] is False
+    assert "swept_at" in entry
+
+    # It reappears on disk: live again, and the stale swept_at is cleared.
+    _make_live(p["live_projects_dir"], {"proj-alpha": {"s1.jsonl": '{"a":1}\n'}})
+    sync(**{**p, "now": datetime(2026, 6, 2, tzinfo=timezone.utc)})
+    entry = read_index(p["index_path"])["sessions"]["proj-alpha/s1.jsonl"]
+    assert entry["live"] is True
+    assert "swept_at" not in entry
+
+
+def test_archive_stats_counts_and_bytes(tmp_path):
+    from claudio.store import archive_stats
+
+    p = _paths(tmp_path)
+    _make_live(p["live_projects_dir"], {"proj-alpha": {"s1.jsonl": "x" * 100}})
+    _make_memory(p["live_projects_dir"], "proj-alpha", {"note.md": "y" * 40})
+    sync(**p)
+
+    st = archive_stats(read_index(p["index_path"]))
+    assert st["archived_count"] == 1
+    assert st["live_count"] == 1
+    assert st["archive_only_count"] == 0
+    assert st["memory_count"] == 1
+    assert st["store_bytes"] == 140

@@ -175,7 +175,17 @@ def check_retention() -> dict:
 
     result = startup_result()
     if result is None:
-        return {"ok": True, "message": "Retention check not run", "signals": []}
+        return {
+            "ok": True,
+            "message": "Archive status not available (sync has not run this process).",
+            "archived_count": 0,
+            "live_count": 0,
+            "archive_only_count": 0,
+            "memory_count": 0,
+            "store_bytes": 0,
+            "last_sync_at": None,
+            "unexpected_count": 0,
+        }
     return result
 
 

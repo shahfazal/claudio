@@ -96,6 +96,24 @@ def read_index(path=None):
     return data
 
 
+def archive_stats(index=None):
+    """Summarize what the store holds, derived from the index (no FS walk)."""
+    if index is None:
+        index = read_index()
+    sessions = index.get("sessions", {})
+    memory = index.get("memory", {})
+    session_bytes = sum(e.get("size", 0) for e in sessions.values())
+    memory_bytes = sum(e.get("size", 0) for e in memory.values())
+    return {
+        "archived_count": len(sessions),
+        "live_count": sum(1 for e in sessions.values() if e.get("live")),
+        "archive_only_count": sum(1 for e in sessions.values() if not e.get("live")),
+        "memory_count": len(memory),
+        "store_bytes": session_bytes + memory_bytes,
+        "last_sync_at": index.get("last_sync_at"),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Lock (serialize concurrent Claudio instances)
 # ---------------------------------------------------------------------------
@@ -148,6 +166,14 @@ class _SyncLock:
 def _stat(path):
     st = path.stat()
     return st.st_size, st.st_mtime
+
+
+def _mark_live(entry, now_iso):
+    """Mark a session entry as live, clearing any stale swept_at from a prior
+    sweep (the session has reappeared on disk)."""
+    entry["live"] = True
+    entry["last_synced"] = now_iso
+    entry.pop("swept_at", None)
 
 
 def _sync_memory_dir(proj_dir, store_projects_dir, mem_index, now_iso, summary):
@@ -280,8 +306,7 @@ def sync(
                                 f"({src_size} < {archived_size}); not overwriting",
                             }
                         )
-                        entry["live"] = True
-                        entry["last_synced"] = now_iso
+                        _mark_live(entry, now_iso)
                         continue
 
                     if src_size > archived_size or src_mtime != entry.get("mtime"):
@@ -294,12 +319,10 @@ def sync(
                             continue
                         entry["size"] = src_size
                         entry["mtime"] = src_mtime
-                        entry["live"] = True
-                        entry["last_synced"] = now_iso
+                        _mark_live(entry, now_iso)
                         summary["updated"] += 1
                     else:
-                        entry["live"] = True
-                        entry["last_synced"] = now_iso
+                        _mark_live(entry, now_iso)
                         summary["skipped"] += 1
 
                 _sync_memory_dir(proj_dir, store_projects_dir, index["memory"], now_iso, summary)

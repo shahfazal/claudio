@@ -15,9 +15,11 @@ from jinja2 import ChoiceLoader, DictLoader
 from claudio.health import check_environment
 from claudio.parsers import (
     PROJECTS_DIR,
+    fmt_bytes,
     fmt_cost,
     fmt_ts,
     group_by_project,
+    is_archive_only,
     load_all_sessions,
     load_history,
     load_project_memory,
@@ -72,6 +74,7 @@ app.jinja_env.globals.update(
     session_title=session_title,
     fmt_ts=fmt_ts,
     fmt_cost=fmt_cost,
+    fmt_bytes=fmt_bytes,
     strip_home=strip_home,
     brain_icon=brain_icon,
     archive_icon=archive_icon,
@@ -170,6 +173,7 @@ def session_view(session_id: str):
 
     session = parse_session(jsonl_path)
     session["project_slug"] = jsonl_path.parent.name
+    session["archive_only"] = is_archive_only(jsonl_path)
 
     todos_map = load_todos()
     todos = todos_map.get(session_id, [])
