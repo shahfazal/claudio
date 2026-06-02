@@ -24,6 +24,7 @@ from claudio.parsers import (
     load_todos,
     parse_session,
     session_title,
+    sessions_root,
     strip_home,
 )
 from claudio.retention import detect_on_startup
@@ -152,12 +153,16 @@ def session_view(session_id: str):
     if not _SESSION_ID_RE.match(session_id):
         return "Invalid session ID", 400
     jsonl_path = None
-    if not PROJECTS_DIR.exists():
+    root = sessions_root()
+    if not root.exists():
         return "Session not found", 404
-    for proj_dir in PROJECTS_DIR.iterdir():
-        candidate = proj_dir / f"{session_id}.jsonl"
-        if candidate.exists():
-            jsonl_path = candidate
+    for proj_dir in root.iterdir():
+        for name in (f"{session_id}.jsonl", f"{session_id}.jsonl.gz"):
+            candidate = proj_dir / name
+            if candidate.exists():
+                jsonl_path = candidate
+                break
+        if jsonl_path is not None:
             break
 
     if jsonl_path is None:

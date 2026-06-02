@@ -4,10 +4,23 @@ from pathlib import Path
 
 import pytest
 
+from claudio import parsers as parsers_module
 from claudio.app import app as flask_app
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 SAMPLE_JSONL = FIXTURES_DIR / "sample.jsonl"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_store(tmp_path, monkeypatch):
+    """Point the store at an empty dir for every test.
+
+    sessions_root() prefers the store when it has content; without this, tests
+    that monkeypatch PROJECTS_DIR would silently read the developer's real
+    ~/.claudio/store. Forcing an empty store makes the resolver fall back to the
+    live tree each test controls.
+    """
+    monkeypatch.setattr(parsers_module, "STORE_PROJECTS_DIR", tmp_path / "_empty_store")
 
 
 @pytest.fixture()

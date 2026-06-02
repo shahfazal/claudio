@@ -745,3 +745,102 @@ def test_load_all_sessions_sort_handles_numeric_timestamp(tmp_path, monkeypatch)
     assert len(sessions) == 2
     # ISO (newer) should sort first
     assert sessions[0]["started_at"] == "2026-06-01T12:00:00.000Z"
+
+
+# ---------------------------------------------------------------------------
+# sessions_root resolver (store vs live tree)
+# ---------------------------------------------------------------------------
+
+_MIN_SESSION = (
+    '{"type":"user","message":{"role":"user","content":'
+    '[{"type":"text","text":"%s"}]},"timestamp":"2026-01-01T10:00:00.000Z"}\n'
+)
+
+
+def test_sessions_root_prefers_store_when_populated(tmp_path, monkeypatch):
+    import claudio.parsers as pm
+
+    store = tmp_path / "store"
+    (store / "-proj").mkdir(parents=True)
+    (store / "-proj" / "x.jsonl").write_text("{}\n")
+    live = tmp_path / "live"
+    live.mkdir()
+    monkeypatch.setattr(pm, "STORE_PROJECTS_DIR", store)
+    monkeypatch.setattr(pm, "PROJECTS_DIR", live)
+    assert pm.sessions_root() == store
+
+
+def test_sessions_root_falls_back_to_live_when_store_empty(tmp_path, monkeypatch):
+    import claudio.parsers as pm
+
+    store = tmp_path / "store"
+    store.mkdir()  # exists but empty
+    live = tmp_path / "live"
+    live.mkdir()
+    monkeypatch.setattr(pm, "STORE_PROJECTS_DIR", store)
+    monkeypatch.setattr(pm, "PROJECTS_DIR", live)
+    assert pm.sessions_root() == live
+
+
+def test_sessions_root_falls_back_when_store_missing(tmp_path, monkeypatch):
+    import claudio.parsers as pm
+
+    live = tmp_path / "live"
+    live.mkdir()
+    monkeypatch.setattr(pm, "STORE_PROJECTS_DIR", tmp_path / "does-not-exist")
+    monkeypatch.setattr(pm, "PROJECTS_DIR", live)
+    assert pm.sessions_root() == live
+
+
+def test_load_all_sessions_reads_store_not_live(tmp_path, monkeypatch):
+    import claudio.parsers as pm
+
+    store = tmp_path / "store"
+    (store / "-proj").mkdir(parents=True)
+    (store / "-proj" / "aaaabbbb-0000-0000-0000-000000000001.jsonl").write_text(
+        _MIN_SESSION % "from the store"
+    )
+    live = tmp_path / "live"
+    (live / "-proj").mkdir(parents=True)
+    (live / "-proj" / "should-not-be-read.jsonl").write_text(_MIN_SESSION % "from live")
+    monkeypatch.setattr(pm, "STORE_PROJECTS_DIR", store)
+    monkeypatch.setattr(pm, "PROJECTS_DIR", live)
+
+    sessions, _ = pm.load_all_sessions()
+    assert [s["session_id"] for s in sessions] == ["aaaabbbb-0000-0000-0000-000000000001"]
+
+
+# ---------------------------------------------------------------------------
+# gzip session support
+# ---------------------------------------------------------------------------
+
+
+def test_session_id_from_path_handles_gz():
+    from pathlib import Path
+
+    from claudio.parsers import _session_id_from_path
+
+    assert _session_id_from_path(Path("p/abc.jsonl")) == "abc"
+    assert _session_id_from_path(Path("p/abc.jsonl.gz")) == "abc"
+
+
+def test_session_files_prefers_plain_over_gz(tmp_path):
+    from claudio.parsers import _session_files
+
+    (tmp_path / "a.jsonl").write_text("{}")
+    (tmp_path / "a.jsonl.gz").write_bytes(b"gzbytes")
+    (tmp_path / "b.jsonl.gz").write_bytes(b"gzbytes")
+    names = {p.name for p in _session_files(tmp_path)}
+    assert names == {"a.jsonl", "b.jsonl.gz"}
+
+
+def test_parse_session_reads_gzip(tmp_path):
+    import gzip
+
+    p = tmp_path / "ffffffff-0000-0000-0000-000000000009.jsonl.gz"
+    with gzip.open(p, "wt", encoding="utf-8") as fh:
+        fh.write(_MIN_SESSION % "cold archived text")
+
+    s = parse_session(p)
+    assert s["session_id"] == "ffffffff-0000-0000-0000-000000000009"
+    assert any("cold archived text" in m["text"] for m in s["messages"])
