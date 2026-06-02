@@ -1,6 +1,7 @@
 """Tests for claudio.parsers."""
 
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -105,16 +106,35 @@ def test_parse_session_cost_calculated(sample_jsonl):
 
 
 def test_calc_cost_uses_model_pricing():
+    # Hermetic: pin the pricing table so the result does not depend on whether
+    # ~/.claudio/pricing.json exists or what rates the user has edited into it.
+    table = {
+        "claude-opus-4-5": (5.0, 6.25, 0.5, 25.0),
+        "claude-sonnet-4-6": (3.0, 3.75, 0.3, 15.0),
+        "claude-haiku-4-5-20251001": (0.8, 1.0, 0.08, 4.0),
+    }
     usage = {
         "input_tokens": 1_000_000,
         "cache_creation_input_tokens": 0,
         "cache_read_input_tokens": 0,
         "output_tokens": 0,
     }
-    assert _calc_cost("claude-opus-4-5", usage) == pytest.approx(15.00)
-    assert _calc_cost("claude-sonnet-4-6", usage) == pytest.approx(3.00)
-    assert _calc_cost("claude-haiku-4-5-20251001", usage) == pytest.approx(0.80)
-    assert _calc_cost("claude-unknown-model", usage) is None  # unknown model with tokens → None
+    with patch("claudio.parsers.PRICING", table):
+        assert _calc_cost("claude-opus-4-5", usage) == pytest.approx(5.00)
+        assert _calc_cost("claude-sonnet-4-6", usage) == pytest.approx(3.00)
+        assert _calc_cost("claude-haiku-4-5-20251001", usage) == pytest.approx(0.80)
+        assert _calc_cost("claude-unknown-model", usage) is None  # unknown model w/ tokens → None
+
+
+def test_default_pricing_has_correct_opus_4_5_rate():
+    # Guards the bundled default that ships to every fresh install: Opus 4.5
+    # launched at $5 / $25 per Mtok, not the $15 / $75 of the Opus 3.x family.
+    from claudio.parsers import _DEFAULT_PRICING_FILE
+
+    opus = json.loads(_DEFAULT_PRICING_FILE.read_text(encoding="utf-8"))["models"][
+        "claude-opus-4-5"
+    ]
+    assert (opus["input"], opus["output"]) == (5.0, 25.0)
 
 
 def test_parse_session_compact_count(tmp_path):
