@@ -30,7 +30,7 @@ from claudio.parsers import (
     strip_home,
 )
 from claudio.retention import detect_on_startup
-from claudio.store import sync_on_startup
+from claudio.store import start_sync_daemon, sync_on_startup
 from claudio.templates import (
     BASE,
     HEALTH_TMPL,
@@ -409,6 +409,7 @@ def main():
     if not debug:
         logging.getLogger("werkzeug").setLevel(logging.ERROR)
     sync_on_startup()
+    start_sync_daemon()
     detect_on_startup()
     print(f"\n  claudio → http://{host}:{port}\n")
     app.run(host=host, port=port, debug=debug)

@@ -1,4 +1,4 @@
-"""User-owned session mirror (PR1: sync + backfill).
+"""User-owned session mirror.
 
 Claude Code deletes session files from ``~/.claude/projects/`` on the
 ``cleanupPeriodDays`` schedule. Claudio derives everything from those files, so
@@ -9,9 +9,10 @@ The store holds the same ``.jsonl`` files in the same format, so the existing
 parser reads it unchanged. Data flows one way only: live -> store. The store is
 append-only; this module never deletes from it.
 
-Scope of this module (PR1): mirror sync + first-run backfill. Stats still read
-the live tree. Pointing stats at the store, gzip of cold sessions, and the
-health card are later PRs. Standard library only.
+The mirror runs once at startup (``sync_on_startup``) and then on a fixed
+interval for the life of the process (``start_sync_daemon``), so a long-lived
+deployment that rarely restarts keeps the store current instead of going stale.
+Standard library only.
 """
 
 import json
@@ -19,6 +20,8 @@ import logging
 import os
 import shutil
 import tempfile
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -346,13 +349,30 @@ def sync(
     return summary
 
 
-def sync_on_startup():
-    """Run the mirror sync once at process startup. Best effort; never blocks launch."""
+# Serializes syncs WITHIN this process. The flock in _SyncLock guards across
+# processes but is a no-op without fcntl (non-POSIX, e.g. Windows), so this lock
+# is the only in-process guard that holds on every platform. Non-blocking: a
+# caller that finds a sync already running skips rather than stacking up.
+_in_process_sync_lock = threading.Lock()
+
+
+def _sync_once():
+    """Run one mirror sync, log the outcome, and return the summary.
+
+    Best effort: never raises, so a startup call never blocks launch and a
+    daemon tick never kills its loop. Returns None when the sync raised or when
+    another thread in this process is mid-sync (this call skips).
+    """
+    if not _in_process_sync_lock.acquire(blocking=False):
+        logging.debug("Store sync skipped: a sync is already running in this process.")
+        return None
     try:
         summary = sync()
-    except Exception as exc:  # pragma: no cover - defensive, never block launch
+    except Exception as exc:  # pragma: no cover - defensive, never block caller
         logging.warning("Store sync failed: %s", exc)
         return None
+    finally:
+        _in_process_sync_lock.release()
 
     if summary["locked_out"]:
         logging.info("Store sync skipped: another instance holds the lock.")
@@ -370,3 +390,47 @@ def sync_on_startup():
     for anomaly in summary["anomalies"]:
         logging.warning("Store sync anomaly [%s]: %s", anomaly["key"], anomaly["reason"])
     return summary
+
+
+def sync_on_startup():
+    """Run the mirror sync once at process startup. Best effort; never blocks launch.
+
+    Returns the sync summary dict, or None if the sync raised or was skipped
+    because another thread in this process was already mid-sync (see _sync_once).
+    """
+    return _sync_once()
+
+
+def start_sync_daemon(interval_seconds=None):
+    """Start a background thread that re-syncs the store on a fixed interval.
+
+    The startup sync fires once. A long-lived process (a launchd/systemd unit, a
+    container, anything that does not restart per use) would otherwise let the
+    store fall behind: sessions created after launch never mirror, and one swept
+    by Claude Code's cleanup before the next restart is lost outright, the exact
+    failure the store exists to prevent. This thread keeps the store current for
+    the life of the process, on any platform Python runs on.
+
+    The thread is a daemon, so it dies with the process without a shutdown
+    handshake. Each tick is serialized with the startup sync (and any future
+    request-triggered sync) by the in-process lock, so a slow sync never stacks.
+
+    ``interval_seconds`` defaults to the CLAUDIO_SYNC_INTERVAL env var (300s).
+    A non-positive interval disables the daemon and returns None; otherwise the
+    started thread is returned.
+    """
+    if interval_seconds is None:
+        interval_seconds = float(os.environ.get("CLAUDIO_SYNC_INTERVAL", "300"))
+    if interval_seconds <= 0:
+        logging.info("Store sync daemon disabled (interval=%ss).", interval_seconds)
+        return None
+
+    def _loop():
+        while True:
+            time.sleep(interval_seconds)
+            _sync_once()
+
+    thread = threading.Thread(target=_loop, name="claudio-sync", daemon=True)
+    thread.start()
+    logging.info("Store sync daemon started (every %ss).", interval_seconds)
+    return thread
