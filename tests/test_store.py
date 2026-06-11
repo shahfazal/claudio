@@ -1,6 +1,7 @@
-"""Tests for src/claudio/store.py (user-owned session mirror, PR1)."""
+"""Tests for src/claudio/store.py (user-owned session mirror)."""
 
 import json
+import threading
 from datetime import datetime, timezone
 
 import pytest
@@ -345,6 +346,66 @@ def test_sync_on_startup_locked_out_returns_summary(tmp_path, monkeypatch):
         summary = store_mod.sync_on_startup()
     assert summary["locked_out"] is True
     assert summary["copied"] == 0
+
+
+# ---------------------------------------------------------------------------
+# In-process guard + sync daemon
+# ---------------------------------------------------------------------------
+
+
+def test_sync_once_skips_when_in_process_lock_held(monkeypatch):
+    calls = []
+    monkeypatch.setattr(store_mod, "sync", lambda *a, **k: calls.append(1))
+
+    assert store_mod._in_process_sync_lock.acquire(blocking=False)
+    try:
+        result = store_mod._sync_once()
+    finally:
+        store_mod._in_process_sync_lock.release()
+
+    assert result is None
+    assert calls == []  # sync never ran while the in-process lock was held
+
+
+def test_sync_once_swallows_exception_and_releases_lock(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(store_mod, "sync", boom)
+
+    assert store_mod._sync_once() is None  # exception swallowed, not propagated
+    # The lock was released despite the failure, so the next tick can still run.
+    assert store_mod._in_process_sync_lock.acquire(blocking=False)
+    store_mod._in_process_sync_lock.release()
+
+
+def test_sync_daemon_disabled_for_nonpositive_interval():
+    assert store_mod.start_sync_daemon(interval_seconds=0) is None
+    assert store_mod.start_sync_daemon(interval_seconds=-5) is None
+
+
+def test_sync_daemon_interval_read_from_env(monkeypatch):
+    monkeypatch.setenv("CLAUDIO_SYNC_INTERVAL", "0")
+    assert store_mod.start_sync_daemon() is None  # env value parsed -> disabled
+
+
+def test_sync_daemon_ticks_call_sync_once(monkeypatch):
+    ticked = threading.Event()
+    calls = []
+
+    def fake_sync_once():
+        calls.append(1)
+        ticked.set()
+        return None
+
+    monkeypatch.setattr(store_mod, "_sync_once", fake_sync_once)
+
+    thread = store_mod.start_sync_daemon(interval_seconds=0.01)
+    assert thread is not None
+    assert thread.daemon is True
+    assert thread.name == "claudio-sync"
+    assert ticked.wait(timeout=2.0)  # the loop slept then called _sync_once
+    assert len(calls) >= 1
 
 
 # ---------------------------------------------------------------------------
